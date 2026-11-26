@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Practice Games</title>
+    <style>
+      :root { color-scheme: dark; --bg: #101722; --panel: #182331; --line: #2b3a4c; --text: #eef4f8; --muted: #9eafbe; --blue: #4c8dff; --green: #5de0ae; --red: #ff828b; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, sans-serif; }
+      header { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+      h1 { font-size: 18px; margin: 0; }
+      h2 { font-size: 13px; margin: 0 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+      a { color: var(--blue); }
+      main { max-width: 1040px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+      @media (max-width: 760px) { main { grid-template-columns: minmax(0, 1fr); } }
+      section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+      .wide { grid-column: 1 / -1; }
+      .notice { color: var(--muted); margin: 0; }
+      #stage { height: 190px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--bg); border-radius: 8px; }
+      #big { font-size: 52px; font-weight: 700; font-variant-numeric: tabular-nums; }
+      #sub { color: var(--muted); min-height: 21px; }
+      .win { color: var(--green); } .lose { color: var(--red); }
+      .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+      button { padding: 9px 14px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
+      button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+      button:disabled { opacity: .45; cursor: default; }
+      button.pressed { outline: 2px solid var(--green); }
+      label { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
+      label[hidden] { display: none; }
+      input, select { width: 100px; padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
+      dl { display: grid; grid-template-columns: auto auto; gap: 4px 12px; margin: 0; }
+      dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+      #curve { width: 100%; height: 110px; display: block; margin-top: 10px; background: var(--bg); border-radius: 6px; }
+      #cursor { position: fixed; left: 0; top: 0; width: 22px; height: 22px; pointer-events: none; z-index: 9; transition: transform .35s ease; transform: translate(50vw, 50vh); }
+      @media (prefers-reduced-motion: reduce) { #cursor { transition: none; } }
+      table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+      th, td { text-align: right; padding: 5px 8px; border-bottom: 1px solid var(--line); }
+      th:first-child, td:first-child { text-align: left; }
+      .scroll { overflow-x: auto; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Practice games · fake money</h1>
+      <a href="/">Dashboard</a>
+    </header>
+    <main>
+      <p class="notice wide">No real money and no connection to any betting site. Rounds are random with a 3% house edge, about the same as Aviator's listed 97% return. These are not the real games.</p>
+      <section>
+        <div id="stage"><div id="big">—</div><div id="sub">Press Start bot</div></div>
+        <div class="actions">
+          <button id="betBtn">Bet</button>
+          <button id="cashBtn" disabled>Cash out</button>
+          <button id="start" class="primary">Start bot</button>
+          <button id="stop" disabled>Stop bot</button>
+          <button id="reset">Reset balance</button>
+        </div>
+      </section>
+      <section>
+        <h2>Bot settings</h2>
+        <label>Game <select id="game"><option value="crash">Crash</option><option value="dice">Dice</option></select></label>
+        <label>Stake ($) <input id="stake" type="number" min="1" value="10" /></label>
+        <label id="targetRow">Cash out at (×) <input id="target" type="number" min="1.01" step="0.01" value="2" /></label>
+        <label id="chanceRow" hidden>Win chance (%) <input id="chance" type="number" min="1" max="95" value="50" /></label>
+        <label>After a loss <select id="mode"><option value="flat">Same stake</option><option value="double">Double (martingale)</option></select></label>
+        <dl>
+          <dt>Balance</dt><dd id="balance"></dd>
+          <dt>Rounds</dt><dd id="rounds"></dd>
+          <dt>Wins</dt><dd id="wins"></dd>
+          <dt>Returned per $100 bet</dt><dd id="rtp"></dd>
+        </dl>
+        <svg id="curve" viewBox="0 0 300 110" preserveAspectRatio="none" role="img" aria-label="Balance over rounds"><polyline id="line" fill="none" stroke="#4c8dff" stroke-width="2" vector-effect="non-scaling-stroke" /></svg>
+      </section>
+      <section class="wide">
+        <h2>Test the settings on 1,000 players</h2>
+        <p class="notice">Each player starts with $1,000 and plays up to 1,000 rounds with the settings above.</p>
+        <div class="actions"><button id="test" class="primary">Run test</button></div>
+        <div class="scroll"><table id="results" hidden>
+          <thead><tr><th>Settings</th><th>Finished ahead</th><th>Went broke</th><th>Average final balance</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+      </section>
+    </main>
+    <svg id="cursor" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2l15 11-7 1 4 8-3 1-4-8-5 5z" fill="#fff" stroke="#000" /></svg>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const RETURN = 0.97;
+      const rand = () => crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32;
+      // Chance of reaching x is 0.97 / x, so cashing out at any x returns 97% on average.
+      const crashPoint = (u) => Math.max(1, Math.floor((100 * RETURN) / (1 - u)) / 100);
+      const settings = () => ({ game: $("game").value, stake: +$("stake").value, target: +$("target").value, chance: +$("chance").value, mode: $("mode").value });
+      const payoutOf = (s) => (s.game === "crash" ? s.target : (RETURN * 100) / s.chance);
+      const wonRound = (s, u) => (s.game === "crash" ? crashPoint(u) >= s.target : u * 100 < s.chance);
+      const nextStake = (s, stake, won, balance) => Math.min(balance, s.mode === "double" && !won ? stake * 2 : s.stake);
+
+      let account = { balance: 1000, rounds: 0, wins: 0, bet: 0, back: 0, stake: null, history: [1000] };
+      let running = false;
+
+      function render() {
+        $("balance").textContent = `$${account.balance.toFixed(2)}`;
+        $("rounds").textContent = account.rounds;
+        $("wins").textContent = account.wins;
+        $("rtp").textContent = account.bet ? `$${((100 * account.back) / account.bet).toFixed(2)}` : "—";
+        const h = account.history.slice(-300), top = Math.max(...h, 1);
+        $("line").setAttribute("points", h.map((v, i) => `${(i / Math.max(h.length - 1, 1)) * 300},${110 - (v / top) * 105}`).join(" "));
+      }
+
+      function settle(s, stake, won) {
+        const back = won ? stake * payoutOf(s) : 0;
+        account.balance += back - stake;
+        account.rounds++; account.wins += won ? 1 : 0; account.bet += stake; account.back += back;
+        account.stake = nextStake(s, stake, won, account.balance);
+        account.history.push(account.balance);
+        render();
+      }
+
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      async function press(button) {
+        const box = button.getBoundingClientRect();
+        $("cursor").style.transform = `translate(${box.left + box.width / 2}px, ${box.top + box.height / 2}px)`;
+        await wait(380);
+        button.classList.add("pressed");
+        await wait(120);
+        button.classList.remove("pressed");
+      }
+
+      async function playCrash(s, stake) {
+        await press($("betBtn"));
+        $("sub").textContent = `Bet $${stake.toFixed(2)}`;
+        $("cashBtn").disabled = false;
+        const point = crashPoint(rand());
+        const cashAt = $("cashBtn").getBoundingClientRect();
+        $("cursor").style.transform = `translate(${cashAt.left + cashAt.width / 2}px, ${cashAt.top + cashAt.height / 2}px)`;
+        const stopAt = Math.min(point, s.target);
+        $("big").className = "";
+        for (let x = 1; x < stopAt && running; x *= 1.012) { $("big").textContent = `${x.toFixed(2)}×`; await wait(16); }
+        $("big").textContent = `${stopAt.toFixed(2)}×`;
+        const won = point >= s.target;
+        if (won) await press($("cashBtn"));
+        $("cashBtn").disabled = true;
+        $("big").className = won ? "win" : "lose";
+        $("sub").textContent = won ? `Cashed out at ${s.target}×, won $${(stake * (s.target - 1)).toFixed(2)}` : `Crashed at ${point.toFixed(2)}×, lost $${stake.toFixed(2)}`;
+        settle(s, stake, won);
+      }
+
+      async function playDice(s, stake) {
+        await press($("betBtn"));
+        $("sub").textContent = `Bet $${stake.toFixed(2)}`;
+        const u = rand();
+        for (let n = 0; n < 12; n++) { $("big").className = ""; $("big").textContent = (rand() * 100).toFixed(2); await wait(40); }
+        const won = wonRound(s, u);
+        $("big").textContent = (u * 100).toFixed(2);
+        $("big").className = won ? "win" : "lose";
+        $("sub").textContent = won ? `Under ${s.chance}, won $${(stake * (payoutOf(s) - 1)).toFixed(2)}` : `Not under ${s.chance}, lost $${stake.toFixed(2)}`;
+        settle(s, stake, won);
+      }
+
+      async function bot() {
+        running = true;
+        $("start").disabled = true; $("stop").disabled = false;
+        account.stake = null;
+        while (running) {
+          const s = settings();
+          if (!(s.stake >= 1) || account.balance < 0.01) { $("sub").textContent = account.balance < 0.01 ? "Balance is gone. Reset to try again." : "Stake must be at least $1."; break; }
+          const stake = Math.min(account.stake ?? s.stake, account.balance);
+          await (s.game === "crash" ? playCrash(s, stake) : playDice(s, stake));
+          await wait(500);
+        }
+        running = false;
+        $("start").disabled = false; $("stop").disabled = true;
+      }
+
+      function runPlayers(s, players = 1000, rounds = 1000, start = 1000) {
+        let ahead = 0, broke = 0, total = 0;
+        for (let p = 0; p < players; p++) {
+          let balance = start, stake = s.stake;
+          for (let r = 0; r < rounds && balance >= 0.01; r++) {
+            stake = Math.min(stake, balance);
+            const won = wonRound(s, rand());
+            balance += won ? stake * (payoutOf(s) - 1) : -stake;
+            stake = nextStake(s, stake, won, balance);
+          }
+          if (balance > start) ahead++;
+          if (balance < 0.01) broke++;
+          total += balance;
+        }
+        return { ahead: ahead / players, broke: broke / players, average: total / players };
+      }
+
+      $("start").addEventListener("click", bot);
+      $("stop").addEventListener("click", () => { running = false; });
+      $("reset").addEventListener("click", () => { running = false; account = { balance: 1000, rounds: 0, wins: 0, bet: 0, back: 0, stake: null, history: [1000] }; $("big").textContent = "—"; $("big").className = ""; $("sub").textContent = "Press Start bot"; render(); });
+      $("game").addEventListener("change", () => { const crash = $("game").value === "crash"; $("targetRow").hidden = !crash; $("chanceRow").hidden = crash; });
+      $("test").addEventListener("click", () => {
+        const s = settings();
+        if (!(s.stake >= 1) || !(s.target > 1) || !(s.chance >= 1 && s.chance <= 95)) return;
+        const r = runPlayers(s);
+        const name = `${s.game === "crash" ? `Crash, cash out ${s.target}×` : `Dice, ${s.chance}% chance`}, $${s.stake}, ${s.mode === "double" ? "double after loss" : "same stake"}`;
+        const row = document.createElement("tr");
+        for (const text of [name, `${(r.ahead * 100).toFixed(1)}%`, `${(r.broke * 100).toFixed(1)}%`, `$${r.average.toFixed(2)}`]) row.insertCell().textContent = text;
+        $("results").tBodies[0].prepend(row);
+        $("results").hidden = false;
+      });
+      render();
+    </script>
+  </body>
+</html>

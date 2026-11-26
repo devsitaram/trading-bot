@@ -1,0 +1,24 @@
+{
+  "title": "XAUUSD paper bot trading rules",
+  "rules": {
+    "start_balance": { "value": 206.49, "rule": "Available equity (E): the paper account starts with this; every trade is sized from the equity at that moment (no live account is connected)." },
+    "leverage": { "value": 3000, "rule": "Broker leverage 1:3000 (required margin per 1 oz = entry price / 3000)." },
+    "spread": { "value": 0.26, "rule": "Transaction cost: baseline USD per oz (spread + commission), charged on entry." },
+    "oz_per_lot": { "value": 100, "rule": "Contract size: 1 lot = 100 oz; minimum trade 0.01 lot = 1 oz." },
+    "risk_per_trade": { "value": 0.01, "rule": "Dynamic position sizing: risk = E × this; size (oz) = risk ÷ (1.5 × ATR); lots = max(0.01, floor(size ÷ 100, 0.01))." },
+    "max_daily_loss": { "value": 0.10, "rule": "Max daily loss: once today's loss reaches this share of the day's starting balance (0.10 = 10%), no more trades today; trading resumes tomorrow (local midnight)." },
+    "ema": { "value": { "fast": 8, "slow": 21 }, "rule": "Trend condition: SELL only when EMA fast < EMA slow (downtrend); BUY only when EMA fast > EMA slow (uptrend)." },
+    "breakout_candles": { "value": 20, "rule": "Breakout trigger: SELL when the candle CLOSES below the low of this many previous candles; BUY when it CLOSES above their high (entry at the next candle's open)." },
+    "rsi": { "value": { "period": 14, "min_to_sell": 30, "max_to_buy": 70 }, "rule": "RSI filter: SELL only when RSI is above min_to_sell (no SELL if RSI ≤ 30); BUY only when RSI is below max_to_buy (no BUY if RSI ≥ 70)." },
+    "atr": { "value": { "period": 14, "min_to_spread": 3 }, "rule": "Volatility filter: ATR must be at least min_to_spread × spread ($0.78 at baseline)." },
+    "safety": { "value": { "max_spread": 0.52, "rollover_utc": "23:58-01:01" }, "rule": "Max spread safety: no new BUY or SELL while the live spread is above max_spread, or during the daily rollover window (UTC)." },
+    "stop_atr": { "value": 1.5, "rule": "Stop loss: SELL = entry price + this × ATR; BUY = entry price − this × ATR." },
+    "target_atr": { "value": 3, "rule": "Take profit: SELL = entry price − this × ATR; BUY = entry price + this × ATR." },
+    "trail": { "value": { "start_atr": 1.5, "distance_atr": 1 }, "rule": "Trailing stop: once profit reaches start_atr × ATR, the stop follows distance_atr × ATR behind the best price (above the lowest low for a SELL, below the highest high for a BUY) and never moves back." },
+    "hold_past_target_while_trend": { "value": true, "rule": "Trend continuation: if price reaches the initial TP while the trend still points the trade's way (EMA fast below slow for a SELL, above for a BUY), keep the trade open under the trailing stop." },
+    "exit_on_trend_flip": { "value": true, "rule": "Invalidation exit: close at the next candle's open once the EMAs cross against the trade (EMA fast closes above slow for a SELL, below slow for a BUY)." },
+    "cooldown_candles_after_loss": { "value": 5, "rule": "Cooldown: wait this many completed candles after a losing trade before the next entry." },
+    "news": { "value": { "minutes_before": 15, "currencies": ["USD"] }, "rule": "High-impact news and rollover: no entries this many minutes before a high-impact news release for these currencies (Forex Factory calendar), nor during the rollover window above." },
+    "auto_tune": { "value": { "enabled": true, "every_minutes": 60, "min_test_trades": 3, "min_gain": 1 }, "rule": "Auto-training: after each closed trade and at least every every_minutes, re-test breakout candles (10/20/30), ATR filter (2/3/4× spread), stop (1.5/2 ATR) and take profit (3/4 ATR). Pick the best on the older 70% of the loaded candles; switch only if it also beats the current settings on the newest 30% by at least min_gain USD with min_test_trades trades. Risk, daily loss, spread, rollover, news and cooldown rules are never changed." }
+  }
+}

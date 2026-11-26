@@ -1,0 +1,7 @@
+{
+  "name": "trade-terminal",
+  "private": true,
+  "main": "main.js",
+  "scripts": { "start": "env -u ELECTRON_RUN_AS_NODE electron ." },
+  "devDependencies": { "electron": "33.2.1" }
+}

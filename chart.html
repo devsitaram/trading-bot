@@ -1,0 +1,1355 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Trading Agent · Gold Chart</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #101722;
+        --panel: #182331;
+        --line: #2b3a4c;
+        --text: #eef4f8;
+        --muted: #9eafbe;
+        --green: #5de0ae;
+        --amber: #ffcb70;
+        --red: #ff828b;
+        --cyan: #5cc8e0;
+        --blue: #4c8dff;
+        --purple: #b07cf0;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
+      header { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+      h1 { font-size: 20px; margin: 0; }
+      a { color: var(--cyan); }
+      select, button { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+      .big { font-size: 22px; font-weight: 600; }
+      .muted, .note { color: var(--muted); }
+      .note { font-size: 12px; margin: 8px 0 0; }
+      .up { color: var(--green); } .down { color: var(--red); }
+      main { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 12px; padding: 12px 16px; }
+      @media (max-width: 900px) { main { grid-template-columns: minmax(0, 1fr); } }
+      aside { display: grid; gap: 12px; align-content: start; }
+      .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+      .panel h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 0 0 8px; text-transform: uppercase; letter-spacing: .04em; }
+      #chart { height: 520px; }
+      #chart.on-line, #chart.on-line * { cursor: ns-resize !important; }
+      .manual { display: flex; gap: 6px; margin-left: auto; }
+      .manual-msg { flex-basis: 100%; text-align: right; font-size: 12px; color: var(--muted); min-height: 1em; transition: opacity 0.6s; }
+      .manual-msg.hide { opacity: 0; }
+      .manual button { font-weight: 600; cursor: pointer; }
+      .manual .btn-buy { background: #4c8dff; border-color: #4c8dff; color: #fff; }
+      .manual .btn-sell { background: #ff828b; border-color: #ff828b; color: #101722; }
+      .manual button:disabled { opacity: 0.35; cursor: not-allowed; }
+      .botbar { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; padding: 8px 10px; margin-bottom: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+      .signal { font-size: 20px; font-weight: 700; }
+      .BUY { color: var(--blue); } .SELL { color: var(--red); } .HOLD { color: var(--amber); }
+      dl { display: grid; grid-template-columns: auto auto; gap: 4px 12px; margin: 8px 0 0; }
+      dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+      summary { cursor: pointer; }
+      summary h2 { display: inline; }
+      .chat { position: fixed; right: 16px; bottom: 16px; z-index: 10; width: 340px; max-width: calc(100vw - 32px); background: var(--panel); border: 1px solid rgba(76, 141, 255, 0.6); border-radius: 10px; overflow: hidden;
+        box-shadow: 0 0 0 3px rgba(76, 141, 255, 0.12), 0 0 28px rgba(76, 141, 255, 0.28), 0 16px 40px rgba(0, 0, 0, 0.65); }
+      .chat-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: #1f3047; border-bottom: 1px solid rgba(76, 141, 255, 0.35); cursor: move; user-select: none; touch-action: none; }
+      .chat-buttons { display: flex; gap: 6px; }
+      .chat-body { padding: 10px; }
+      .chat.min .chat-body { display: none; }
+      .chat.min .chat-head { border-bottom: 0; }
+      .chatlog { display: grid; gap: 6px; max-height: 260px; overflow-y: auto; margin-bottom: 8px; font-size: 13px; }
+      .msg { padding: 6px 8px; border-radius: 6px; white-space: pre-wrap; background: var(--bg); justify-self: start; max-width: 92%; }
+      .msg.me { background: #24364b; justify-self: end; }
+      .chatform { display: flex; gap: 6px; }
+      .chatform input { flex: 1; min-width: 0; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+      .steps { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 5px; font-size: 13px; }
+      .steps li::before { display: inline-block; width: 18px; font-weight: 700; }
+      .steps li.ok::before { content: "✓"; color: var(--green); }
+      .steps li.no::before { content: "✗"; color: var(--red); }
+      .steps li.todo { color: var(--muted); }
+      .steps li.todo::before { content: "○"; }
+      .steps .hint { margin: 3px 0 0 18px; padding: 6px 8px; border-radius: 6px; background: var(--bg); color: var(--text); font-size: 12px; }
+      .trade-on { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; font-size: 13px; }
+      .real-warn { margin-top: 6px; padding: 6px 8px; border-radius: 6px; background: rgba(255, 130, 139, 0.15); color: var(--red); font-weight: 700; font-size: 13px; }
+      .checks { margin: 4px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; }
+      .rules { margin: 12px 0 0; padding-left: 20px; font-size: 13px; display: grid; gap: 6px; }
+      .log { grid-column: 1 / -1; overflow-x: auto; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+      th, td { padding: 6px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+      th:first-child, td:first-child { text-align: left; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>XAU/USD</h1>
+      <span id="price" class="big">—</span>
+      <span id="change"></span>
+      <span class="muted">24h H <span id="high">—</span> · L <span id="low">—</span></span>
+      <select id="tf" aria-label="Timeframe">
+        <option>1m</option><option>5m</option><option>15m</option><option>1h</option>
+      </select>
+      <span id="status" class="muted">Loading…</span>
+      <span id="tick" class="muted">Live: connecting…</span>
+      <span id="source" class="muted"></span>
+      <a href="/">Dashboard</a>
+      <a href="/trade">Trade terminal</a>
+    </header>
+
+    <main>
+      <section class="panel">
+        <div class="botbar">
+          <strong id="bbState">🤖 Paper bot · loading rules…</strong>
+          <span>Decision <b id="bbSignal" class="HOLD">HOLD</b></span>
+          <span>Position <b id="bbPos">Flat</b></span>
+          <span>Today P&amp;L <b id="bbPnl">—</b></span>
+          <span class="manual" aria-label="Manual trade">
+            <button id="mBuy" class="btn-buy" title="Open a BUY now; the bot sets stop loss and take profit and manages it">BUY</button>
+            <button id="mSell" class="btn-sell" title="Open a SELL now; the bot sets stop loss and take profit and manages it">SELL</button>
+            <button id="mClose" title="Close the open trade at the current price" disabled>Close trade</button>
+          </span>
+          <span id="manualMsg" class="manual-msg" role="status"></span>
+        </div>
+        <div id="chart"></div>
+        <p class="note">
+          Price: live bid of Binance XAUUSDT perpetual futures (public data), plotted like the JustMarkets chart — not JustMarkets quotes.
+          Dashed lines: the bot's open position entry, stop and target.
+          Every label has a small arrow pointing at its candle. Blue BUY / red SELL with price: where the bot entered.
+          TP/SL/TRAIL with P&amp;L: where it closed — green for profit, rose red for loss.
+          Faded "Signal" with price (blue arrow below = buy, red arrow above = sell): a signal the bot did not trade (a trade already open, cooldown, news or rollover window, or a daily limit). Its Entry, Stop and Target lines stay until the next signal, a new trade, or the price touching the Stop or Target. With no open trade they are only a plan: Position shows Flat.
+        </p>
+      </section>
+
+      <aside>
+        <div class="panel">
+          <h2>JustMarkets account</h2>
+          <div id="brokerState" class="muted">Checking MT5 link…</div>
+          <details id="connectBox" hidden>
+            <summary class="muted">JustMarkets connection steps</summary>
+            <ol id="connectSteps" class="steps"></ol>
+          </details>
+          <div class="trade-on" role="radiogroup" aria-label="Which account the bot may trade">
+            <span>Trade on:</span>
+            <label><input type="radio" name="tradeOn" value="demo" checked /> Demo only</label>
+            <label><input type="radio" name="tradeOn" value="real" /> Real account</label>
+          </div>
+          <div id="realWarn" class="real-warn" hidden>⚠ REAL MONEY — the bot trades your real JustMarkets account</div>
+          <dl id="brokerInfo" hidden>
+            <dt>Last order</dt><dd id="bkOrder">—</dd>
+          </dl>
+        </div>
+        <div class="panel">
+          <h2>Bot decision</h2>
+          <div id="signal" class="signal HOLD">HOLD</div>
+          <div id="reason" class="muted"></div>
+          <dl>
+            <dt>EMA fast / slow</dt><dd id="emas">—</dd>
+            <dt>RSI</dt><dd id="rsi">—</dd>
+            <dt>ATR</dt><dd id="atr">—</dd>
+            <dt>Trend</dt><dd id="trend">—</dd>
+          </dl>
+        </div>
+        <div class="panel">
+          <h2 id="acctTitle">Account · not linked</h2>
+          <dl>
+            <dt>Total balance</dt><dd id="balance">—</dd>
+            <dt>Equity</dt><dd id="equity">—</dd>
+            <dt>Today P/L</dt><dd id="todaypl">—</dd>
+            <dt>Open position</dt><dd id="position">—</dd>
+            <dt>Unrealized P&amp;L</dt><dd id="upnl">—</dd>
+            <dt>Trades today</dt><dd id="ntrades">—</dd>
+            <dt>Win rate</dt><dd id="winrate">—</dd>
+          </dl>
+          <p id="acctNote" class="note"></p>
+          <p id="tune" class="note"></p>
+        </div>
+        <div class="panel">
+          <h2>Why buy / sell / hold</h2>
+          <div id="whyStatus" class="signal HOLD">—</div>
+          <ul id="whyReasons" class="checks"></ul>
+        </div>
+      </aside>
+
+      <section class="panel log">
+        <h2>Paper trade log · last 24 hours · P&amp;L <span id="daypnl">—</span></h2>
+        <table>
+          <thead><tr><th>Entry time</th><th>Side</th><th>Lots</th><th>Entry</th><th>Stop</th><th>Target</th><th>Exit</th><th>P&amp;L</th></tr></thead>
+          <tbody id="trades"><tr><td colspan="8" class="muted">No trades yet</td></tr></tbody>
+        </table>
+        <p><button id="more" hidden>View more</button></p>
+      </section>
+
+      <details class="panel log">
+        <summary><h2>Trading rules · read once at page open (click to show / hide)</h2></summary>
+        <ol id="rules" class="rules"><li class="muted">Loading rules.json…</li></ol>
+        <p class="note">To change a rule, edit rules.json and reload this page.</p>
+      </details>
+    </main>
+
+    <div id="chat" class="chat" role="dialog" aria-label="Bot chat">
+      <div id="chatHead" class="chat-head">
+        <strong>🤖 Bot chat</strong>
+        <span class="chat-buttons">
+          <button id="chatMin" aria-label="Minimize chat">–</button>
+          <button id="chatClose" aria-label="Minimize chat to the bottom-right corner">✕</button>
+        </span>
+      </div>
+      <div class="chat-body">
+        <div id="chatLog" class="chatlog">
+          <div class="msg bot">Hi, I'm your paper bot. Ask "why no trade?", "status", or type help. Drag me by this title bar.</div>
+        </div>
+        <form id="chatForm" class="chatform">
+          <input id="chatInput" placeholder="Ask the bot or give a command…" autocomplete="off" aria-label="Message the bot" />
+          <button>Send</button>
+        </form>
+      </div>
+    </div>
+
+    <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+    <script id="bot">
+      let R = null; // trading rules, read once from rules.json when the page opens
+      let BASE = null; // the rules exactly as read from rules.json; auto-training restarts from these on a new timeframe
+      let NEWS = null; // high-impact news [{ time: UTC seconds, title, currency }], read once when the page opens
+      let liveSpread = null; // current ask − bid, set by the live quote feed
+      let PAUSES = []; // chat "pause"/"resume": [{ from, to }] in UTC seconds (to = null while paused); no new entries inside
+      let MANUAL_CLOSES = []; // Close button / chat "close": [{ time, price }] in UTC seconds
+      let MANUAL_OPENS = []; // BUY/SELL buttons / chat "buy"/"sell": [{ time, side, price }] in UTC seconds
+      let LEVEL_CHANGES = []; // dragged Stop/Target lines / chat "move stop to …": [{ time, kind: "stop" | "target", price }]
+      const paused = (utc) => PAUSES.some((p) => utc >= p.from && (p.to === null || utc < p.to));
+      const TZ_SHIFT = -new Date().getTimezoneOffset() * 60; // candle times are shifted to local time for the chart
+      const RULE_NAMES = [
+        "start_balance", "spread", "oz_per_lot", "risk_per_trade", "max_daily_loss", "ema_fast", "ema_slow",
+        "breakout_candles", "rsi_period", "rsi_min_to_sell", "rsi_max_to_buy", "atr_period", "atr_min_to_spread", "safety_max_spread",
+        "safety_rollover_utc", "stop_atr", "target_atr", "trail_start_atr", "trail_distance_atr", "hold_past_target_while_trend",
+        "exit_on_trend_flip", "cooldown_candles_after_loss", "news_minutes_before", "news_currencies",
+        "auto_tune_enabled", "auto_tune_every_minutes", "auto_tune_min_test_trades", "auto_tune_min_gain",
+      ];
+
+      // A rule can group settings: "ema": { "value": { "fast": 8, "slow": 21 } } becomes R.ema_fast and R.ema_slow.
+      const flattenRules = (rules) => Object.fromEntries(Object.entries(rules).flatMap(([name, r]) =>
+        r.value && typeof r.value === "object" && !Array.isArray(r.value)
+          ? Object.entries(r.value).map(([k, v]) => [`${name}_${k}`, v])
+          : [[name, r.value]]));
+
+      async function loadRules(url = "/rules.json") {
+        const doc = await fetch(url).then((r) => r.json());
+        R = flattenRules(doc.rules);
+        BASE = { ...R };
+        return doc;
+      }
+
+      async function loadNews(url = "/api/news") {
+        const events = await fetch(url).then((r) => { if (!r.ok) throw new Error(r.statusText); return r.json(); });
+        NEWS = events.filter((e) => R.news_currencies.includes(e.currency)).map((e) => ({ ...e, time: Date.parse(e.time) / 1000 }));
+      }
+
+      // Rules that are missing or make every trade lose stop the bot instead of trading.
+      function rulesProblem() {
+        if (!R) return "rules.json could not be read";
+        const missing = RULE_NAMES.filter((n) => !(n in R));
+        if (missing.length) return `rules.json is missing: ${missing.join(", ")}`;
+        if (!/^\d\d:\d\d-\d\d:\d\d$/.test(R.safety_rollover_utc)) return 'rule 11 rollover window must look like "23:58-01:01".';
+        if (!NEWS) return "the news calendar could not be loaded, so rule 18 cannot be checked";
+        // Trades need ATR ≥ atr_min_to_spread × spread, so these keep every stop outside the spread.
+        if (R.stop_atr * R.atr_min_to_spread <= 1) return "stop_atr × atr min_to_spread must be above 1, or the stop can sit inside the spread.";
+        if (R.trail_distance_atr * R.atr_min_to_spread <= 1) return "trail distance_atr × atr min_to_spread must be above 1, or the trailing stop can sit inside the spread.";
+        if (R.trail_distance_atr >= R.trail_start_atr) return "trail_distance_atr must be smaller than trail_start_atr, so trailing locks in a profit.";
+        if (R.target_atr < 2 * R.stop_atr) return "target_atr must be at least 2 × stop_atr (1:2 risk/reward minimum).";
+        return null;
+      }
+
+      const warmup = () => Math.max(R.ema_slow, R.breakout_candles, R.rsi_period, R.atr_period) + 1;
+
+      function ema(values, period) {
+        const alpha = 2 / (period + 1);
+        let e = null;
+        return values.map((v, i) => {
+          if (i < period - 1) return null;
+          e = i === period - 1 ? values.slice(0, period).reduce((s, x) => s + x) / period : alpha * v + (1 - alpha) * e;
+          return e;
+        });
+      }
+
+      function rsi(values, period = 14) {
+        const out = values.map(() => null);
+        let gain = 0, loss = 0;
+        for (let i = 1; i < values.length; i++) {
+          const d = values[i] - values[i - 1];
+          if (i <= period) {
+            gain += Math.max(d, 0) / period;
+            loss += Math.max(-d, 0) / period;
+          } else {
+            gain = (gain * (period - 1) + Math.max(d, 0)) / period;
+            loss = (loss * (period - 1) + Math.max(-d, 0)) / period;
+          }
+          if (i >= period) out[i] = loss === 0 ? 100 : 100 - 100 / (1 + gain / loss);
+        }
+        return out;
+      }
+
+      function atr(candles, period = 14) {
+        const tr = candles.map((c, i) => (i === 0 ? c.high - c.low
+          : Math.max(c.high - c.low, Math.abs(c.high - candles[i - 1].close), Math.abs(c.low - candles[i - 1].close))));
+        return tr.map((_, i) => (i < period ? null : tr.slice(i - period + 1, i + 1).reduce((s, x) => s + x) / period));
+      }
+
+      function indicators(candles) {
+        const closes = candles.map((c) => c.close);
+        return { fast: ema(closes, R.ema_fast), slow: ema(closes, R.ema_slow), rsi: rsi(closes, R.rsi_period), atr: atr(candles, R.atr_period) };
+      }
+
+      // Rules 7–10: SELL a downtrend breakdown or BUY an uptrend breakout, decided on a closed candle.
+      function decide(candles, ind, i) {
+        if (i < warmup()) return { side: "HOLD", reason: "Not enough history" };
+        const prior = candles.slice(i - R.breakout_candles, i);
+        const low = Math.min(...prior.map((c) => c.low)), high = Math.max(...prior.map((c) => c.high));
+        const close = candles[i].close, r = ind.rsi[i];
+        if (ind.atr[i] < R.atr_min_to_spread * R.spread) {
+          return { side: "HOLD", reason: `Market too quiet: ATR ${ind.atr[i].toFixed(2)} is under ${R.atr_min_to_spread}× the spread` };
+        }
+        if (ind.fast[i] < ind.slow[i]) {
+          if (close >= low) return { side: "HOLD", reason: `Downtrend, but no breakdown: close ${close.toFixed(2)} is not below the ${R.breakout_candles}-candle low ${low.toFixed(2)}` };
+          if (r <= R.rsi_min_to_sell) return { side: "HOLD", reason: `Breakdown, but RSI ${r.toFixed(0)} ≤ ${R.rsi_min_to_sell}: too stretched to sell` };
+          return { side: "SELL", reason: `Downtrend and close broke the ${R.breakout_candles}-candle low ${low.toFixed(2)}` };
+        }
+        if (ind.fast[i] > ind.slow[i]) {
+          if (close <= high) return { side: "HOLD", reason: `Uptrend, but no breakout: close ${close.toFixed(2)} is not above the ${R.breakout_candles}-candle high ${high.toFixed(2)}` };
+          if (r >= R.rsi_max_to_buy) return { side: "HOLD", reason: `Breakout, but RSI ${r.toFixed(0)} ≥ ${R.rsi_max_to_buy}: too stretched to buy` };
+          return { side: "BUY", reason: `Uptrend and close broke the ${R.breakout_candles}-candle high ${high.toFixed(2)}` };
+        }
+        return { side: "HOLD", reason: "No trend: EMA fast equals EMA slow" };
+      }
+
+      // Rules 11 and 18: no new entries during the daily rollover / broker maintenance window or just before high-impact news.
+      function entryBlock(utc) {
+        const minute = Math.floor((utc % 86400) / 60);
+        const [from, to] = R.safety_rollover_utc.split("-").map((t) => +t.slice(0, 2) * 60 + +t.slice(3));
+        if (from > to ? minute >= from || minute <= to : minute >= from && minute <= to) return `daily rollover ${R.safety_rollover_utc} UTC`;
+        const news = NEWS.find((n) => utc >= n.time - R.news_minutes_before * 60 && utc < n.time);
+        return news ? `${news.title} (${news.currency}) at ${new Date(news.time * 1000).toLocaleTimeString()}` : null;
+      }
+
+      // The entry that happens on candle i, if any: decided on the closed candle i − 1, filled at candle i's open.
+      function entrySignal(candles, ind, i) {
+        const d = decide(candles, ind, i - 1);
+        return d.side === "HOLD" ? d : { ...d, price: candles[i].open, atr: ind.atr[i - 1] };
+      }
+
+      // A trade's entry after spread, with the rules' stop and take profit.
+      function tradeLevels(side, price, atrValue) {
+        const sign = side === "BUY" ? 1 : -1, entry = price + sign * R.spread;
+        return { entry, stop: entry - sign * R.stop_atr * atrValue, target: entry + sign * R.target_atr * atrValue };
+      }
+
+      // The levels of a signal the bot did not take, until the price touches its stop or target or a trade opens or closes.
+      function signalLevels(candles, j, s, trades) {
+        const time = candles[j].time, long = s.side === "BUY", levels = tradeLevels(s.side, s.price, s.atr);
+        if (trades.some((t) => t.time > time || t.exitTime >= time)) return null;
+        const touched = candles.slice(j).some((k) => long
+          ? k.low <= levels.stop || k.high >= levels.target
+          : k.high >= levels.stop || k.low <= levels.target);
+        return touched ? null : levels;
+      }
+
+      const freshState = () => ({
+        balance: R.start_balance, peak: R.start_balance, maxDrawdown: 0, trades: [], position: null,
+        day: null, dayStart: R.start_balance, dayTrades: 0, cooldownUntil: 0, lastTime: 0, entriesFrom: 0, eventsFrom: 0,
+      });
+
+      // Moves up from the state's last processed candle to candle end − 1; what came before it is never recalculated.
+      function simulate(candles, ind, from = freshState(), end = candles.length) {
+        const state = structuredClone(from), trades = state.trades, step = candles[1].time - candles[0].time;
+        let { balance, peak, maxDrawdown, position, day, dayStart, dayTrades, cooldownUntil, lastTime } = state;
+        const close = (exit, reason, i) => {
+          const sign = position.side === "BUY" ? 1 : -1;
+          position.exit = exit;
+          position.pnl = sign * (exit - position.entry) * position.oz;
+          position.reason = reason !== "STOP" ? reason : position.pnl >= 0 ? "TRAIL" : "SL";
+          balance += position.pnl;
+          peak = Math.max(peak, balance);
+          maxDrawdown = Math.max(maxDrawdown, peak - balance);
+          if (position.pnl < 0) cooldownUntil = candles[i].time + R.cooldown_candles_after_loss * step;
+          position.exitTime = candles[i].time;
+          trades.push(position);
+          position = null;
+        };
+        // Wait for profit: once far enough in profit, the stop follows the best price and never moves back.
+        const follow = (price) => {
+          const sign = position.side === "BUY" ? 1 : -1;
+          position.best = sign > 0 ? Math.max(position.best, price) : Math.min(position.best, price);
+          if (sign * (position.best - position.entry) >= R.trail_start_atr * position.atr) {
+            const trail = position.best - sign * R.trail_distance_atr * position.atr;
+            position.stop = sign > 0 ? Math.max(position.stop, trail) : Math.min(position.stop, trail);
+          }
+        };
+        // Opens a trade with the rules' stop, take profit and 1% risk size (rule 5: never below the 0.01-lot minimum).
+        const open = (side, price, atrValue, i, utc, manual) => {
+          const sign = side === "BUY" ? 1 : -1, { entry, stop, target } = tradeLevels(side, price, atrValue);
+          const oz = Math.max(1, Math.floor((balance * R.risk_per_trade) / (R.stop_atr * atrValue))); // whole oz = 0.01-lot steps
+          position = {
+            side, oz, entry, best: entry, atr: atrValue, manual, openUtc: utc, time: candles[i].time,
+            // Rule 16 exits on a cross against the trade; a manual trade opened against the trend has not seen one yet.
+            trendSeen: sign * (ind.fast[i - 1] - ind.slow[i - 1]) > 0,
+            openedAt: manual ? candles[i].time + 1 : candles[i].time, // a manual fill is mid-candle, so the full candle range is not all after it
+            stop, target,
+          };
+          dayTrades++;
+        };
+        for (let i = warmup() + 1; i < end; i++) {
+          const k = candles[i];
+          if (k.time <= lastTime) continue;
+          lastTime = k.time;
+          const candleDay = Math.floor(k.time / 86400); // candle times are already shifted to local time
+          if (candleDay !== day) { day = candleDay; dayStart = balance; dayTrades = 0; }
+          const nextStart = (candles[i + 1]?.time ?? Infinity) - TZ_SHIFT;
+          const withinDailyLimits = () => balance > dayStart * (1 - R.max_daily_loss);
+          // Automatic entry at this candle's open: only if flat when the candle opens. The whole candle then comes after
+          // the entry, so the exit checks below also run on it (its high/low can hit the stop or target straight away).
+          if (!position && k.time >= cooldownUntil && k.time - TZ_SHIFT >= state.entriesFrom && withinDailyLimits() && !paused(k.time - TZ_SHIFT)) {
+            const s = entrySignal(candles, ind, i);
+            const spreadOk = !(i === candles.length - 1 && liveSpread !== null && liveSpread > R.safety_max_spread); // only known live
+            if (s.side !== "HOLD" && !entryBlock(k.time - TZ_SHIFT) && spreadOk) open(s.side, s.price, s.atr, i, k.time - TZ_SHIFT, false);
+          }
+          if (position && position.openedAt <= k.time) {
+            // Stop/Target moved by hand during this candle.
+            for (const ch of LEVEL_CHANGES) if (ch.time >= k.time - TZ_SHIFT && ch.time < nextStart) position[ch.kind] = ch.price;
+            const long = position.side === "BUY", sign = long ? 1 : -1;
+            const hitStop = long ? k.low <= position.stop : k.high >= position.stop;
+            const hitTarget = long ? k.high >= position.target : k.low <= position.target;
+            const trendWithTrade = sign * (ind.fast[i - 1] - ind.slow[i - 1]) > 0;
+            const manual = MANUAL_CLOSES.find((m) => m.time >= position.openUtc && m.time < nextStart);
+            if (manual) {
+              close(manual.price, "MANUAL", i);
+              cooldownUntil = Math.max(cooldownUntil, k.time + step); // the close happened mid-candle, after this candle's open
+            }
+            // Trend invalidation: the last closed candle's EMAs crossed against the trade, so close at this candle's open.
+            else if (R.exit_on_trend_flip && position.trendSeen && sign * (ind.fast[i - 1] - ind.slow[i - 1]) < 0) close(k.open, "TREND", i);
+            else if (hitStop) close(position.stop, "STOP", i); // stop first if both touched in one candle
+            else if (hitTarget && !(R.hold_past_target_while_trend && trendWithTrade)) close(position.target, "TP", i);
+            else follow(long ? k.high : k.low);
+            if (position && trendWithTrade) position.trendSeen = true;
+          }
+          // Manual BUY/SELL: skips the entry rules (trend, breakout, RSI, ATR, news, cooldown, pause) but not the daily limits.
+          // Several can happen inside one candle (open, close, open again), so they are replayed in time order.
+          for (const mo of MANUAL_OPENS.filter((m) => m.time >= k.time - TZ_SHIFT && m.time < nextStart)) {
+            if (position || !withinDailyLimits()) continue;
+            open(mo.side, mo.price, ind.atr[i - 1], i, mo.time, true);
+            for (const ch of LEVEL_CHANGES) if (ch.time >= mo.time && ch.time < nextStart) position[ch.kind] = ch.price; // moved by hand
+            const sign = mo.side === "BUY" ? 1 : -1;
+            const closedToo = MANUAL_CLOSES.find((m) => m.time >= mo.time && m.time < nextStart);
+            if (closedToo) close(closedToo.price, "MANUAL", i);
+            // Only this candle's close is known to be after the fill.
+            else if (sign * (k.close - position.stop) <= 0) close(position.stop, "STOP", i);
+            else follow(k.close);
+          }
+        }
+        return { ...state, balance, peak, maxDrawdown, position, day, dayStart, dayTrades, cooldownUntil, lastTime };
+      }
+
+      // Rule 19, auto-training (walk-forward): only these strategy settings are ever tuned; risk and safety rules never change.
+      const TUNE_GRID = { breakout_candles: [10, 20, 30], atr_min_to_spread: [2, 3, 4], stop_atr: [1.5, 2], target_atr: [3, 4] };
+      const TUNE_COMBOS = Object.entries(TUNE_GRID).reduce((all, [k, values]) => all.flatMap((c) => values.map((v) => ({ ...c, [k]: v }))), [{}]);
+
+      // Net P&L and trade count of the bot on these candles with some settings swapped in (R is restored afterwards).
+      function backtest(params, candles) {
+        // Judge the rules alone: your manual trades, closes, moved levels and pauses are left out of the test.
+        const saved = { R, opens: MANUAL_OPENS, closes: MANUAL_CLOSES, levels: LEVEL_CHANGES, pauses: PAUSES };
+        R = { ...R, ...params };
+        MANUAL_OPENS = []; MANUAL_CLOSES = []; LEVEL_CHANGES = []; PAUSES = [];
+        try {
+          if (rulesProblem()) return null;
+          const s = simulate(candles, indicators(candles));
+          return { pnl: s.balance - R.start_balance, trades: s.trades.length };
+        } finally {
+          ({ R, opens: MANUAL_OPENS, closes: MANUAL_CLOSES, levels: LEVEL_CHANGES, pauses: PAUSES } = saved);
+        }
+      }
+
+      // Best settings on the older 70%, accepted only if they also beat the current settings on the newest 30%,
+      // which they were not tuned on (so a lucky fit to old data does not get adopted).
+      function autoTune(candles) {
+        const split = Math.floor(candles.length * 0.7);
+        const train = candles.slice(0, split), test = candles.slice(split - 40); // 40 = warm-up history for the indicators
+        const current = Object.fromEntries(Object.keys(TUNE_GRID).map((k) => [k, R[k]]));
+        let best = null;
+        for (const params of TUNE_COMBOS) {
+          const r = backtest(params, train);
+          if (r && (!best || r.pnl > best.train.pnl)) best = { params, train: r };
+        }
+        const before = backtest(current, test), after = backtest(best.params, test);
+        const adopt = !!after && after.trades >= R.auto_tune_min_test_trades && after.pnl >= before.pnl + R.auto_tune_min_gain
+          && Object.keys(TUNE_GRID).some((k) => best.params[k] !== current[k]);
+        return { current, best: best.params, before, after, adopt };
+      }
+    </script>
+    <script>
+      const API = "https://fapi.binance.com/fapi/v1";
+      const $ = (id) => document.getElementById(id);
+      // Small arrow + text above or below a candle. The chart library has no gap setting, but every marker stacked
+      // on a candle adds a small margin, so invisible size-0 markers put space between candle, arrow and text.
+      const label = (time, below, color, text) => {
+        const position = below ? "belowBar" : "aboveBar";
+        return [
+          { time, position, color, shape: "circle", size: 0 },
+          { time, position, color, shape: below ? "arrowUp" : "arrowDown", size: 0.5 },
+          { time, position, color, shape: "circle", size: 0, text },
+        ];
+      };
+      let whyNow = null; // { status, reasons } last shown in the Why panel; the chat answers from it
+      let latest = null; // { sim, last } from the last refresh; the chat answers from it
+      let tuned = { at: 0, tf: null, text: "not run yet" }; // last auto-training run (rule 19)
+      // Unrealized and total P&L at this price; called on every live tick, not just on the 5-second refresh.
+      // Account panel and bot bar: live JustMarkets demo data (MT5 reports every ½ s); nothing simulated when not linked.
+      function renderAccount() {
+        if (!R) return;
+        const a = BROKER?.linked ? BROKER.account : null;
+        const set = (id, text, cls = "") => { $(id).textContent = text; $(id).className = cls; };
+        if (!a) {
+          // Not linked: show the bot's own paper trading (simulated, no real money) instead of an empty panel.
+          if (!latest) return;
+          const { sim } = latest, p = sim.position, price = liveCandle?.close ?? latest.last.close;
+          const upnl = p ? (p.side === "BUY" ? 1 : -1) * (price - p.entry) * p.oz : 0;
+          const todayPl = sim.balance - sim.dayStart, wins = sim.trades.filter((t) => t.pnl > 0).length;
+          $("acctTitle").textContent = "Paper bot · simulation";
+          set("balance", usd(sim.balance));
+          set("equity", usd(sim.balance + upnl), upnl >= 0 ? "up" : "down");
+          set("todaypl", `${usd(todayPl)} (limit −$${(sim.dayStart * R.max_daily_loss).toFixed(2)})`, todayPl > 0 ? "up" : todayPl < 0 ? "down" : "");
+          set("position", p ? `${p.side}${p.manual ? " (manual)" : ""} ${(p.oz / R.oz_per_lot).toFixed(2)} @ ${p.entry.toFixed(2)} · SL ${p.stop.toFixed(2)} · TP ${p.target.toFixed(2)}` : "Flat");
+          set("upnl", p ? usd(upnl) : "— (no open trade)", !p ? "" : upnl >= 0 ? "up" : "down");
+          set("ntrades", String(sim.dayTrades));
+          set("winrate", sim.trades.length ? `${Math.round((100 * wins) / sim.trades.length)}% (${wins} of ${sim.trades.length})` : "—");
+          set("bbPos", p ? `${p.side} ${(p.oz / R.oz_per_lot).toFixed(2)} @ ${p.entry.toFixed(2)}` : "Flat");
+          set("bbPnl", usd(todayPl + upnl), todayPl + upnl >= 0 ? "up" : "down");
+          $("acctNote").textContent = `Simulated trading on live gold prices, saved on this Mac, starting from $${R.start_balance}. It trades only while this page is open. No real orders: `
+            + "JustMarkets is not linked. Once MetaTrader 5 is logged in, this panel switches to your real JustMarkets account data.";
+          return;
+        }
+        const p = a.positions[0], limit = (a.balance - a.today_pl) * R.max_daily_loss;
+        $("acctTitle").textContent = `JustMarkets ${a.mode} #${a.login} · live`;
+        set("balance", `${usd(a.balance)} ${a.currency}`);
+        set("equity", usd(a.equity), a.equity >= a.balance ? "up" : "down");
+        set("todaypl", `${usd(a.today_pl)} (limit −$${limit.toFixed(2)})`, a.today_pl > 0 ? "up" : a.today_pl < 0 ? "down" : "");
+        set("position", p ? `${p.side} ${p.volume.toFixed(2)} @ ${p.price.toFixed(2)} · SL ${p.sl.toFixed(2)} · TP ${p.tp.toFixed(2)}` : "Flat");
+        set("upnl", p ? usd(p.profit) : "— (no open trade)", !p ? "" : p.profit >= 0 ? "up" : "down");
+        set("ntrades", String(a.today_trades));
+        set("winrate", a.closed ? `${Math.round((100 * a.wins) / a.closed)}% (${a.wins} of ${a.closed}, 30 days)` : "— (no closed trades yet)");
+        set("bbPos", p ? `${p.side} ${p.volume.toFixed(2)} @ ${p.price.toFixed(2)}` : "Flat");
+        const dayTotal = a.today_pl + (p ? p.profit : 0);
+        set("bbPnl", usd(dayTotal), dayTotal >= 0 ? "up" : "down");
+        $("acctNote").textContent = `Live from your JustMarkets ${a.mode.toLowerCase()} account through MT5 (updates every ½ second).`;
+      }
+
+      // Rule 6, judged on the demo account when linked (the bot's own record otherwise): why no new trade today.
+      function dailyLimitReason(sim) {
+        const a = BROKER?.linked ? BROKER.account : null;
+        const pl = a ? a.today_pl : sim.balance - sim.dayStart, dayStart = a ? a.balance - a.today_pl : sim.dayStart;
+        if (pl <= -dayStart * R.max_daily_loss) return `today's loss ${usd(pl)} reached the ${R.max_daily_loss * 100}% limit`;
+        return null;
+      }
+
+      const showWhy = (status, cls, reasons) => {
+        whyNow = { status, reasons };
+        $("whyStatus").textContent = status;
+        $("whyStatus").className = `signal ${cls}`;
+        $("whyReasons").replaceChildren(...reasons.map((text) => {
+          const li = document.createElement("li");
+          li.textContent = text;
+          return li;
+        }));
+      };
+      const usd = (v) => (v < 0 ? "-$" : "$") + Math.abs(v).toFixed(2);
+
+      const chart = LightweightCharts.createChart($("chart"), {
+        autoSize: true,
+        layout: { background: { color: "#182331" }, textColor: "#9eafbe", fontSize: 8 }, // also sizes BUY/SELL marker text
+        grid: { vertLines: { color: "#22303f" }, horzLines: { color: "#22303f" } },
+        timeScale: { timeVisible: true, borderColor: "#2b3a4c" },
+        rightPriceScale: { borderColor: "#2b3a4c" },
+      });
+      const candleSeries = chart.addCandlestickSeries({
+        upColor: "#5de0ae", borderUpColor: "#5de0ae", wickUpColor: "#5de0ae",
+        downColor: "#ff828b", borderDownColor: "#ff828b", wickDownColor: "#ff828b",
+      });
+
+      let loadedTf = null;
+      let showAll = false;
+      let liveCandle = null;
+      let priceLines = [];
+      let dragging = null; // { kind: "stop" | "target", line, price } while a Stop/Target line is being dragged
+      const TF_SECONDS = { "1m": 60, "5m": 300, "15m": 900, "1h": 3600 };
+
+      // One refresh at a time: overlapping runs could compute the bot on different price sources and disagree.
+      let refreshQueue = Promise.resolve();
+      let LEDGER = null; // the saved paper account (paper_bot.sqlite3), with candle times in local time like the chart
+      let ledgerVersion = 0;
+      let tfChanged = false; // the timeframe was just changed by hand; otherwise it follows the saved account
+
+      const shiftTrade = (t, by) => ({ ...t, time: t.time + by, openedAt: t.openedAt + by, ...(t.exitTime ? { exitTime: t.exitTime + by } : {}) });
+      const shiftState = (s, by) => ({
+        ...s, cooldownUntil: s.cooldownUntil && s.cooldownUntil + by, lastTime: s.lastTime && s.lastTime + by,
+        position: s.position && shiftTrade(s.position, by), trades: s.trades.map((t) => shiftTrade(t, by)),
+      });
+
+      async function readLedger() {
+        const doc = await fetch("/api/paper").then((r) => r.json());
+        ledgerVersion = doc.version;
+        LEDGER = doc.state && shiftState(doc.state, TZ_SHIFT);
+        const events = doc.events.filter((e) => e.time >= (LEDGER?.eventsFrom ?? 0));
+        MANUAL_OPENS = events.filter((e) => e.kind === "open");
+        MANUAL_CLOSES = events.filter((e) => e.kind === "close");
+        LEVEL_CHANGES = events.filter((e) => e.kind === "level").map((e) => ({ time: e.time, kind: e.level, price: e.price }));
+        PAUSES = [];
+        for (const e of events) {
+          if (e.kind === "pause") PAUSES.push({ from: e.time, to: null });
+          if (e.kind === "resume" && PAUSES.length) PAUSES.at(-1).to = e.time;
+        }
+      }
+
+      // A 409 means another tab saved first: the next refresh reads its version.
+      async function saveLedger() {
+        const r = await fetch("/api/paper/state", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ version: ledgerVersion, state: shiftState(LEDGER, -TZ_SHIFT) }) });
+        if (r.ok) ledgerVersion = (await r.json()).version;
+        else if (r.status !== 409) throw new Error(`could not save the paper account (${r.status})`);
+      }
+
+      // Saves a manual action in the refresh queue, so the refresh after it reads it back.
+      function recordEvent(kind, event) {
+        refreshQueue = refreshQueue.then(() => fetch("/api/paper/events", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, ...event }) }))
+          .then((r) => { if (!r.ok) throw new Error(r.status); })
+          .catch((err) => { $("status").textContent = `Could not save your ${kind}: ${err.message}`; });
+      }
+
+      // Closed candles the loaded window no longer covers, needed to manage a trade left open while this page was closed.
+      async function candlesSince(utc, before, step) {
+        const rows = [];
+        for (let from = utc; from < before;) {
+          const page = await fetch(`${API}/klines?symbol=XAUUSDT&interval=${$("tf").value}&limit=1000&startTime=${from * 1000}`).then((r) => r.json());
+          if (!page.length) break;
+          rows.push(...page.map((x) => [x[0] / 1000, +x[1], +x[2], +x[3], +x[4]]));
+          from = rows.at(-1)[0] + step;
+        }
+        return rows.filter((r) => r[0] < before).map(([t, open, high, low, close]) => ({ time: t + TZ_SHIFT, open, high, low, close }));
+      }
+
+      function refresh() {
+        refreshQueue = refreshQueue.then(runRefresh, runRefresh);
+        return refreshQueue;
+      }
+
+      async function runRefresh() {
+        try {
+          await readLedger();
+          if (!tfChanged && LEDGER) $("tf").value = LEDGER.tf;
+          const tf = $("tf").value;
+          // JustMarkets candles from MT5 when linked (orders fill at these prices); Binance XAUUSDT otherwise.
+          const source = BROKER?.linked && BROKER.bars.includes(tf) ? "JustMarkets" : "Binance";
+          const [rows, day] = await Promise.all([
+            source === "JustMarkets"
+              ? fetch(`/api/broker/bars?tf=${tf}`).then((r) => r.json())
+              : fetch(`${API}/klines?symbol=XAUUSDT&interval=${tf}&limit=1000`).then((r) => r.json()).then((k) => k.map((x) => [x[0] / 1000, +x[1], +x[2], +x[3], +x[4]])),
+            fetch(`${API}/ticker/24hr?symbol=XAUUSDT`).then((r) => r.json()),
+          ]);
+          const candles = rows.map(([t, open, high, low, close]) => ({ time: t + TZ_SHIFT, open, high, low, close }));
+          // MT5 sends candles only every few seconds, so the newest one can hold an old price (or be missing right after a
+          // new candle starts). Bring the forming candle up to the live price, so the bot never judges a trade on old prices.
+          const tail = candles.at(-1);
+          if (liveCandle && loadedTf === `${tf}:${source}`) {
+            if (liveCandle.time > tail.time) candles.push({ ...liveCandle });
+            else if (liveCandle.time === tail.time) {
+              Object.assign(tail, { close: liveCandle.close, high: Math.max(tail.high, liveCandle.high), low: Math.min(tail.low, liveCandle.low) });
+            }
+          }
+          $("source").textContent = source === "JustMarkets" ? `Prices: JustMarkets ${BROKER.account.symbol} (MT5)` : "Prices: Binance XAUUSDT";
+          candleSeries.setData(candles);
+          if (loadedTf !== `${tf}:${source}`) { chart.timeScale().setVisibleLogicalRange({ from: candles.length - 150, to: candles.length + 5 }); loadedTf = `${tf}:${source}`; }
+
+          const last = candles[candles.length - 1];
+          liveCandle = { ...last };
+          const change = +day.priceChangePercent;
+          $("price").textContent = last.close.toFixed(2);
+          $("change").textContent = `${change >= 0 ? "↗" : "↘"} ${Math.abs(change).toFixed(2)}%`;
+          $("change").className = change >= 0 ? "up" : "down";
+          $("high").textContent = (+day.highPrice).toFixed(2);
+          $("low").textContent = (+day.lowPrice).toFixed(2);
+
+          if (R && !NEWS) await loadNews().catch(() => {}); // calendar was unavailable at page open: keep retrying
+          const problem = rulesProblem();
+          $("bbState").textContent = problem ? `⛔ Paper bot · STOPPED — ${problem}`
+            : PAUSES.some((p) => p.to === null) ? "⏸ Paper bot · paused (type resume in the chat)"
+            : BROKER?.linked && BROKER.account.mode === "REAL" && !realArmed ? "👀 Watching only · MT5 is on your REAL account and Real account is not chosen"
+            : BROKER?.linked && BROKER.controller ? `🤖 Bot · running · trading the JustMarkets ${BROKER.account.mode} account${BROKER.account.mode === "REAL" ? " ⚠ REAL MONEY" : ""}`
+            : BROKER?.linked ? "👀 Watching only · another chart tab trades the demo account" : "🤖 Paper bot · running";
+          $("bbState").className = problem ? "down" : "";
+          if (problem) {
+            $("status").textContent = "Bot stopped: check rules.json";
+            showWhy("STOPPED", "HOLD", [problem]);
+            return;
+          }
+
+          // Rule 19: re-train on a new timeframe, after a newly closed trade, or every auto_tune_every_minutes.
+          if (R.auto_tune_enabled) {
+            const now = Date.now() / 1000;
+            const lastExit = (latest?.sim.trades.at(-1)?.exitTime ?? 0) - TZ_SHIFT;
+            const dataKey = `${tf}:${source}`; // new timeframe or price source = new data to learn from
+            if (dataKey !== tuned.tf || now - tuned.at > R.auto_tune_every_minutes * 60 || lastExit > tuned.at) {
+              if (dataKey !== tuned.tf) for (const k of Object.keys(TUNE_GRID)) R[k] = BASE[k];
+              const t = autoTune(candles);
+              if (t.adopt) Object.assign(R, t.best);
+              const changes = Object.keys(t.best).filter((k) => t.best[k] !== t.current[k]).map((k) => `${k} ${t.current[k]} → ${t.best[k]}`);
+              const text = t.adopt
+                ? `Updated ${changes.join(", ")}. On the newest 30% of candles: ${usd(t.before.pnl)} → ${usd(t.after.pnl)}.`
+                : !changes.length ? "Current settings are already the best on the older 70% of candles."
+                : `Kept current settings: the best alternative (${changes.join(", ")}) made ${usd(t.after.pnl)} on the newest 30% vs ${usd(t.before.pnl)} now.`;
+              tuned = { at: now, tf: dataKey, text };
+            }
+            $("tune").textContent = `Auto-training (${new Date(tuned.at * 1000).toLocaleTimeString()}): ${tuned.text}`;
+          }
+
+          const ind = indicators(candles);
+          const i = candles.length - 2;
+          let d = decide(candles, ind, i);
+          const block = entryBlock(last.time - TZ_SHIFT)
+            ?? (liveSpread > R.safety_max_spread ? `spread ${liveSpread.toFixed(2)} is above ${R.safety_max_spread}` : null);
+          if (block) d = { side: "HOLD", reason: `No new entries now: ${block}` };
+          $("signal").textContent = d.side;
+          $("signal").className = `signal ${d.side}`;
+          $("reason").textContent = d.reason;
+          $("emas").textContent = `${ind.fast[i].toFixed(2)} / ${ind.slow[i].toFixed(2)}`;
+          $("rsi").textContent = ind.rsi[i].toFixed(1);
+          $("atr").textContent = ind.atr[i].toFixed(2);
+          $("trend").textContent = ind.fast[i] > ind.slow[i] ? "Up" : "Down";
+
+          // Only closed candles are saved. The forming candle is worked out on top of them and can still change.
+          const step = TF_SECONDS[tf], nowUtc = Date.now() / 1000;
+          LEDGER ??= { ...freshState(), tf };
+          if (LEDGER.tf !== tf) { // only possible with no open trade: the timeframe list is locked during one
+            LEDGER = { ...LEDGER, tf, lastTime: last.time - 1, entriesFrom: nowUtc, eventsFrom: nowUtc };
+            await saveLedger();
+            await readLedger();
+          }
+          tfChanged = false;
+          // The bot trades only while this page is open: no trades are invented for the time it was closed.
+          if (!LEDGER.lastTime || nowUtc - (LEDGER.lastTime - TZ_SHIFT) > 2 * step + 60) LEDGER.entriesFrom = nowUtc;
+          const older = LEDGER.position && LEDGER.lastTime < candles[0].time
+            ? await candlesSince(LEDGER.lastTime - TZ_SHIFT - warmup() * step, candles[0].time - TZ_SHIFT, step) : [];
+          const simCandles = [...older, ...candles], simInd = older.length ? indicators(simCandles) : ind;
+          const closed = simulate(simCandles, simInd, LEDGER, simCandles.length - 1);
+          if (closed.lastTime !== LEDGER.lastTime) { LEDGER = closed; await saveLedger(); }
+          const sim = simulate(simCandles, simInd, LEDGER);
+          $("tf").disabled = !!sim.position;
+          $("tf").title = sim.position ? "The timeframe can change once this trade is closed" : "";
+          latest = { sim, last, ind, i };
+          if (source === "JustMarkets") syncBroker(sim); // only mirror decisions made on the prices MT5 trades at
+          const upnl = sim.position ? (sim.position.side === "BUY" ? last.close - sim.position.entry : sim.position.entry - last.close) * sim.position.oz : 0;
+          renderAccount();
+
+          // Why buy / sell / hold: the current status and only the reasons behind it.
+          const prior = candles.slice(i - R.breakout_candles, i);
+          const low = Math.min(...prior.map((c) => c.low)), high = Math.max(...prior.map((c) => c.high));
+          if (sim.position) {
+            const p = sim.position;
+            showWhy(p.side, p.side, [
+              `In a ${p.manual ? "manual " : ""}${p.side} trade: ${(p.oz / R.oz_per_lot).toFixed(2)} lot at ${p.entry.toFixed(2)}, unrealized ${usd(upnl)}`,
+              `Closes at stop ${p.stop.toFixed(2)}, target ${p.target.toFixed(2)} or when EMA ${R.ema_fast} crosses ${p.side === "SELL" ? "above" : "below"} EMA ${R.ema_slow}`,
+            ]);
+          } else {
+            // The trend picks the side: a downtrend can only SELL, an uptrend can only BUY.
+            const down = ind.fast[i] < ind.slow[i], side = down ? "SELL" : "BUY";
+            const entryWindow = entryBlock(last.time - TZ_SHIFT);
+            const cooldownLeft = Math.ceil((sim.cooldownUntil - last.time) / step);
+            const close = candles[i].close, r = ind.rsi[i];
+            const blockers = [
+              down
+                ? [close < low, `Downtrend, but no breakdown: close ${close.toFixed(2)} is not below the ${R.breakout_candles}-candle low ${low.toFixed(2)}`]
+                : [close > high, `Uptrend, but no breakout: close ${close.toFixed(2)} is not above the ${R.breakout_candles}-candle high ${high.toFixed(2)}`],
+              down
+                ? [r > R.rsi_min_to_sell, `RSI ${r.toFixed(1)} is ${R.rsi_min_to_sell} or lower: too stretched to sell`]
+                : [r < R.rsi_max_to_buy, `RSI ${r.toFixed(1)} is ${R.rsi_max_to_buy} or higher: too stretched to buy`],
+              [ind.atr[i] >= R.atr_min_to_spread * R.spread, `Market too quiet: ATR ${ind.atr[i].toFixed(2)} is under ${(R.atr_min_to_spread * R.spread).toFixed(2)}`],
+              [!(liveSpread > R.safety_max_spread), `Spread ${liveSpread?.toFixed(2)} is above ${R.safety_max_spread}`],
+              [!entryWindow, `No entries now: ${entryWindow}`],
+              [cooldownLeft <= 0, `Cooldown after a loss: ${cooldownLeft} candle(s) left`],
+              [!dailyLimitReason(sim), `Daily limit reached: ${dailyLimitReason(sim)}`],
+              [!PAUSES.some((p) => p.to === null), "Paused from the chat: no new trades until you type resume"],
+            ].filter(([ok]) => !ok).map(([, text]) => text);
+            if (blockers.length) showWhy("HOLD", "HOLD", blockers);
+            else showWhy(side, side, [down
+              ? `All conditions met: downtrend, close below the ${R.breakout_candles}-candle low ${low.toFixed(2)}, RSI ${r.toFixed(1)}, ATR ${ind.atr[i].toFixed(2)} — selling at this candle's open`
+              : `All conditions met: uptrend, close above the ${R.breakout_candles}-candle high ${high.toFixed(2)}, RSI ${r.toFixed(1)}, ATR ${ind.atr[i].toFixed(2)} — buying at this candle's open`]);
+          }
+
+          $("bbSignal").textContent = d.side;
+          $("bbSignal").className = d.side;
+          // Rule 6: once today's loss reaches the limit, manual trading stops too.
+          const dayBlocked = dailyLimitReason(sim);
+          $("mBuy").disabled = $("mSell").disabled = !!sim.position || !!dayBlocked;
+          $("mBuy").title = $("mSell").title = dayBlocked
+            ? `No more trades today: ${dayBlocked}. Trading resumes tomorrow.`
+            : "Open a trade now; the bot sets stop loss and take profit and manages it";
+          $("mClose").disabled = !sim.position;
+
+          const all = sim.position ? [...sim.trades, sim.position] : sim.trades;
+          // Every candle where the rules said BUY/SELL but the bot did not trade (busy, cooldown, daily limit, min lot).
+          const barOf = (time) => candles.findLast((c) => c.time <= time)?.time; // saved trades can be older than the loaded candles
+          const taken = new Set(all.map((t) => barOf(t.time)));
+          const signalMarks = [];
+          const lastLabel = { BUY: -Infinity, SELL: -Infinity };
+          let lastSignal = null;
+          for (let j = warmup() + 1; j < candles.length; j++) {
+            const s = entrySignal(candles, ind, j);
+            if (s.side === "HOLD" || taken.has(candles[j].time)) continue;
+            if (j - lastLabel[s.side] < 5) continue; // one label per side per 5 candles, so texts don't stack
+            lastLabel[s.side] = j;
+            lastSignal = { j, s };
+            const buy = s.side === "BUY";
+            signalMarks.push(...label(candles[j].time, buy, buy ? "rgba(76,141,255,0.7)" : "rgba(255,130,139,0.7)", `Signal ${s.price.toFixed(2)}`));
+          }
+          if (!dragging) { // don't redraw the lines under the mouse while a Stop/Target line is being dragged
+            const plan = !sim.position && lastSignal && signalLevels(candles, lastSignal.j, lastSignal.s, all);
+            priceLines.forEach((l) => candleSeries.removePriceLine(l));
+            const levels = sim.position ?? plan, drag = sim.position ? " ↕" : ""; // only an open trade's lines can be dragged
+            priceLines = levels
+              ? [["Entry", levels.entry, "#eef4f8"], [`Stop${drag}`, levels.stop, "#ff828b"], [`Target${drag}`, levels.target, "#5de0ae"]]
+                .map(([title, price, color]) => candleSeries.createPriceLine({ price, color, title, lineWidth: title === "Entry" ? 1 : 2, lineStyle: 2 }))
+              : [];
+          }
+          candleSeries.setMarkers([...signalMarks, ...all.flatMap((t) => {
+            const long = t.side === "BUY";
+            if (!barOf(t.time)) return [];
+            const marks = label(barOf(t.time), long, long ? "#4c8dff" : "#ff828b", `${t.side}${t.manual ? " (manual)" : ""} ${t.entry.toFixed(2)}`);
+            if (t.exitTime) marks.push(...label(barOf(t.exitTime), !long, t.pnl > 0 ? "#5de0ae" : "#f0507f", `${t.reason} ${t.pnl >= 0 ? "+" : ""}${usd(t.pnl)}`));
+            return marks;
+          })].sort((a, b) => a.time - b.time));
+
+          const fmt = (t) => new Date((t - TZ_SHIFT) * 1000).toLocaleString();
+          const dayAgo = Date.now() / 1000 - 86400;
+          const today = all.filter((t) => t.time - TZ_SHIFT >= dayAgo).reverse();
+          const dayPnl = today.reduce((s, t) => s + (t.pnl ?? 0), 0);
+          $("daypnl").textContent = `${usd(dayPnl)} (${today.filter((t) => t.exitTime).length} closed)`;
+          $("daypnl").className = dayPnl >= 0 ? "up" : "down";
+          $("more").hidden = today.length <= 5;
+          $("more").textContent = showAll ? "Show latest 5" : `View more (${today.length})`;
+          const shown = showAll ? today : today.slice(0, 5);
+          $("trades").innerHTML = shown.length ? shown.map((t) => `<tr>
+            <td>${fmt(t.time)}</td><td class="${t.side}">${t.side}${t.manual ? " (manual)" : ""}</td><td>${(t.oz / R.oz_per_lot).toFixed(2)}</td>
+            <td>${t.entry.toFixed(2)}</td><td>${t.stop.toFixed(2)}</td><td>${t.target.toFixed(2)}</td>
+            <td>${t.exit ? t.exit.toFixed(2) : "open"}</td>
+            <td class="${(t.pnl ?? 0) >= 0 ? "up" : "down"}">${t.exitTime ? usd(t.pnl) : "—"}</td></tr>`).join("")
+            : `<tr><td colspan="8" class="muted">No trades in the last 24 hours</td></tr>`;
+
+          $("status").textContent = `Updated ${new Date().toLocaleTimeString()}`;
+        } catch (err) {
+          $("status").textContent = `Price feed unavailable: ${err.message}`;
+        }
+      }
+
+      // Every bid change moves the price and the forming candle immediately; indicators and the bot still recompute on refresh().
+      function onQuote(bid, ask, timeMs) {
+        liveSpread = ask - bid;
+        if (!liveCandle) return;
+        const step = TF_SECONDS[$("tf").value];
+        const bucket = Math.floor(timeMs / 1000 / step) * step + TZ_SHIFT;
+        if (bucket < liveCandle.time) return;
+        if (bucket > liveCandle.time) liveCandle = { time: bucket, open: bid, high: bid, low: bid, close: bid };
+        liveCandle.close = bid;
+        liveCandle.high = Math.max(liveCandle.high, bid);
+        liveCandle.low = Math.min(liveCandle.low, bid);
+        candleSeries.update(liveCandle);
+        $("price").textContent = bid.toFixed(2);
+        const t = new Date(timeMs);
+        $("tick").textContent = `Live tick ${t.toLocaleTimeString()}.${String(t.getMilliseconds()).padStart(3, "0")} · spread ${liveSpread.toFixed(2)}`;
+      }
+
+      // Binance ticks drive the chart only while MT5 is not linked; once linked, JustMarkets prices take over.
+      function connectLive() {
+        const ws = new WebSocket("wss://fstream.binance.com/ws/xauusdt@bookTicker");
+        ws.onmessage = (e) => {
+          if (BROKER?.linked) return;
+          const quote = JSON.parse(e.data);
+          onQuote(+quote.b, +quote.a, quote.T);
+        };
+        ws.onclose = () => { $("tick").textContent = "Live: reconnecting…"; setTimeout(connectLive, 3000); };
+      }
+
+      // JustMarkets link (MT5 add-on mt5/JustMarketsBridge.mq5): account, prices and candles in; the bot's trades out.
+      let BROKER = null; // last /api/broker status: { controller, linked, account, account_at, bars, orders }
+      let brokerNote = "";
+      const CLIENT_ID = crypto.randomUUID().replace(/-/g, ""); // this tab; only one open tab may trade the account
+      async function pollBroker() {
+        try {
+          const wasLinked = !!BROKER?.linked;
+          BROKER = await fetch(`/api/broker?client=${CLIENT_ID}`).then((r) => r.json());
+          if (BROKER.linked !== wasLinked) refresh(); // switch price source right away
+        } catch {
+          BROKER = null;
+        }
+        renderBroker();
+        renderAccount();
+        if (BROKER?.linked) onQuote(BROKER.account.bid, BROKER.account.ask, Date.now());
+      }
+
+      // Each step to link JustMarkets, checked from MT5's own files: ✓ done, ✗ the first missing one (with what to do), ○ later.
+      function renderConnectSteps(mt5) {
+        if (!mt5) return $("connectSteps").replaceChildren();
+        const login = mt5.login, onJustMarkets = !!login && /justmarkets/i.test(login.server);
+        const download = Object.assign(document.createElement("a"), { href: mt5.download, target: "_blank", rel: "noopener noreferrer", textContent: "Download MetaTrader 5 ↗" });
+        const steps = [
+          ["MetaTrader 5 installed", mt5.installed, mt5.version ? `version ${mt5.version}` : "", [download]],
+          ["MetaTrader 5 open", mt5.running, "", ["Open the MetaTrader 5 app."]],
+          ["Logged in to JustMarkets", onJustMarkets,
+            login ? `#${login.account} on ${login.server}` : mt5.login_error ?? "",
+            // "Invalid account" on a JustMarkets server = wrong number/password; any other failure = MT5 lacks JustMarkets' servers.
+            [/Invalid account/.test(mt5.login_error ?? "") && /justmarkets/i.test(mt5.login_error)
+              ? "Wrong account number or MT5 trading password? Double-click link_justmarkets.command in the project folder and enter them again."
+              : (login ? `MT5 is logged in to ${login.server}, not JustMarkets. `
+                : mt5.login_error ? "That was not a JustMarkets login: MT5 does not know JustMarkets' servers yet. " : "")
+                + "In MT5: File → Open an Account → search “JustMarkets” → click Just Global Markets (adds its servers) → Cancel. "
+                + "Then double-click link_justmarkets.command in the project folder and enter your MT5 trading password."]],
+          ["JustMarketsBridge running on a chart", mt5.bridge === "running", mt5.bridge_error ?? "",
+            ["Double-click link_justmarkets.command, or drag JustMarketsBridge onto an XAUUSD chart and switch on Algo Trading."]],
+          // Only known once the add-on runs: it reports a blocked WebRequest within seconds.
+          ["Connection to the bot allowed (WebRequest)", !!BROKER?.linked || (mt5.bridge === "running" && !mt5.webrequest_error), "",
+            ["In MT5: Tools → Options → Expert Advisors → tick “Allow WebRequest for listed URL” → add http://127.0.0.1:8765."]],
+          ["Account data received", !!BROKER?.linked, "", ["Waiting for the first report from JustMarketsBridge…"]],
+        ];
+        const firstMissing = steps.findIndex(([, ok]) => !ok);
+        $("connectSteps").replaceChildren(...steps.map(([name, ok, detail, hint], n) => {
+          const li = document.createElement("li");
+          li.className = ok ? "ok" : n === firstMissing ? "no" : "todo";
+          li.append(name, detail ? ` · ${detail}` : "");
+          if (n === firstMissing) {
+            const help = Object.assign(document.createElement("div"), { className: "hint" });
+            help.append(...hint);
+            li.append(help);
+          }
+          return li;
+        }));
+      }
+
+      function renderBroker() {
+        const a = BROKER?.linked ? BROKER.account : null;
+        $("brokerInfo").hidden = !a;
+        $("connectBox").hidden = !!a;
+        if (!a) {
+          $("brokerState").textContent = "⚪ JustMarkets not linked — the bot is paper trading (simulation, no real orders).";
+          renderConnectSteps(BROKER?.mt5);
+          return;
+        }
+        $("brokerState").textContent = a.mode === "CONTEST" ? `⛔ MT5 is on contest account #${a.login}; the bot never trades contest accounts.`
+          : a.mode === "REAL" && !realArmed ? `🟠 MT5 is logged in to your REAL account #${a.login}. The bot is NOT trading it — choose Real account below to trade it.`
+          : !BROKER.controller ? `🟡 Linked #${a.login}, but another open chart tab is trading it — this tab only watches. Close the other tabs to trade from here.`
+          : `${a.mode === "REAL" ? "🔴" : "🟢"} Linked · ${a.mode} #${a.login} (${a.server}) · ${a.symbol}`;
+        const o = BROKER.orders.at(-1);
+        $("bkOrder").textContent = brokerNote || (o ? `${o.action} ${o.side} · ${o.status}${o.message ? ` · ${o.message}` : ""}` : "—");
+      }
+
+      // Real money needs this page's own confirmation (and AllowRealAccount in the MT5 add-on). It resets on every reload.
+      let realArmed = false;
+      document.querySelectorAll('input[name="tradeOn"]').forEach((radio) => radio.addEventListener("change", () => {
+        if (radio.value === "real" && radio.checked) {
+          const typed = prompt("REAL MONEY: the bot will open and close trades on your real JustMarkets account "
+            + "(when MT5 is logged in to it and the add-on's AllowRealAccount is on). Losses are real money.\n\nType REAL to confirm.");
+          realArmed = typed === "REAL";
+          if (!realArmed) document.querySelector('input[name="tradeOn"][value="demo"]').checked = true;
+        } else if (radio.value === "demo" && radio.checked) {
+          realArmed = false;
+        }
+        $("realWarn").hidden = !realArmed;
+        renderBroker();
+        refresh();
+      }));
+
+      let orderInFlight = null; // id of the last order until MT5 reports done/failed ("sending" while it is being queued)
+      async function sendOrder(body) {
+        orderInFlight = "sending";
+        try {
+          const response = await fetch("/api/broker/orders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, client: CLIENT_ID, allow_real: realArmed }) });
+          const reply = await response.json();
+          brokerNote = response.ok ? "" : `MT5 order refused: ${reply.error}`;
+          orderInFlight = response.ok ? reply.id : null;
+        } catch {
+          brokerNote = "MT5 order could not be sent (dashboard not reachable)";
+          orderInFlight = null;
+        }
+        renderBroker();
+      }
+
+      // Mirror the bot's trade onto the demo account: open fresh entries, close what the bot closed, follow moved SL/TP.
+      const mirroredOpens = new Set();
+      let lastModify = "";
+      function syncBroker(sim) {
+        const a = BROKER?.linked ? BROKER.account : null;
+        if (!a || !BROKER.controller) return; // only the controlling tab trades
+        if (a.mode === "CONTEST" || (a.mode === "REAL" && !realArmed)) return; // real money only when chosen on this page
+        // One step at a time: wait until MT5 has reported the previous order (the account report then reflects it).
+        if (orderInFlight !== null) {
+          const o = BROKER.orders.find((x) => x.id === orderInFlight);
+          // Wait for MT5's result and then for an account report made after it, so the positions include the change.
+          if (!o || o.status === "pending" || o.status === "sent" || BROKER.account_at <= o.done_at) return;
+          orderInFlight = null;
+        }
+        const mine = a.positions[0] ?? null, p = sim.position, now = Date.now() / 1000;
+        if (mine && (!p || p.side !== mine.side)) return sendOrder({ action: "close", ticket: mine.ticket });
+        if (!mine && p && !dailyLimitReason(sim)) { // the demo account's own daily limits must allow a new trade
+          const key = `${p.side}@${p.openUtc}`;
+          if (mirroredOpens.has(key) || now - p.openUtc > 90) return; // copy fresh entries only, never chase an old one
+          mirroredOpens.add(key);
+          const slDistance = Math.abs(p.entry - p.stop), tpDistance = Math.abs(p.target - p.entry);
+          const oz = Math.max(1, Math.floor((a.equity * R.risk_per_trade) / slDistance)); // rules 1 and 5: live demo equity
+          return sendOrder({ action: "open", side: p.side, volume: Math.min(oz / R.oz_per_lot, 1),
+            sl_distance: +slDistance.toFixed(2), tp_distance: +tpDistance.toFixed(2) });
+        }
+        if (mine && p) {
+          const sl = +p.stop.toFixed(2), tp = +p.target.toFixed(2), key = `${mine.ticket}:${sl}:${tp}`;
+          if ((Math.abs(mine.sl - sl) > 0.05 || Math.abs(mine.tp - tp) > 0.05) && key !== lastModify) {
+            lastModify = key; // never repeat a modify MT5 already refused
+            return sendOrder({ action: "modify", ticket: mine.ticket, sl, tp });
+          }
+        }
+      }
+
+      // Bot chat: the paper bot answers from its own live state and takes commands. No AI service is involved: the message
+      // is cleaned up (slang, contractions), then scored against keyword lists (typos allowed) to pick the best intent.
+      const HELP = 'Ask me things like "why no trade?", "how\'s it going?", "what\'s the price?", "is the trend down?", "any news?", "last trade?", "show the rules" — or tell me to pause, resume, close the trade, or "set breakout_candles 10".';
+      const SLANG = {
+        u: "you", ur: "your", r: "are", y: "why", wat: "what", wats: "what is", whats: "what is", hows: "how is", whys: "why is",
+        pls: "please", plz: "please", thx: "thanks", ty: "thanks", tq: "thanks", coz: "because", cuz: "because", im: "i am",
+        dont: "do not", didnt: "did not", doesnt: "does not", isnt: "is not", wont: "will not", cant: "can not", havent: "have not",
+      };
+      // [intent, keywords]. A keyword with a space is a phrase (worth 2); a word is worth 1 and tolerates one typo.
+      // On a tie the earlier intent wins, so commands beat small talk ("ok pause" pauses).
+      const INTENTS = [
+        ["stops", ["stop loss", "take profit", "trailing", "sl", "tp", "target"]],
+        ["why", ["why", "reason", "reasons", "explain", "waiting", "stuck", "blocked", "hold", "holding", "no trade", "not trading",
+          "not trade", "no trades", "not sell", "not selling", "did not", "nothing happening", "no position"]],
+        ["help", ["help", "commands", "command", "options", "what can you do", "how to use", "how do i"]],
+        ["pause", ["pause", "halt", "freeze", "stop trading", "stop the bot", "stop bot"]],
+        ["resume", ["resume", "unpause", "continue", "restart", "start trading", "start again", "start the bot"]],
+        ["close", ["close", "exit", "flatten", "close trade", "close position", "get out"]],
+        ["trend", ["trend", "direction", "market", "ema", "rsi", "atr", "momentum", "volatility", "volatile", "bullish", "bearish",
+          "going up", "going down", "up or down"]],
+        ["buy", ["buy", "long", "buying"]],
+        ["sell", ["sell", "short", "selling", "shorting"]],
+        ["money", ["profit", "loss", "pnl", "money", "earn", "earned", "make", "made", "lost", "balance", "account", "equity", "winning", "losing", "win rate"]],
+        ["news", ["news", "fomc", "fed", "event", "events", "calendar", "gdp", "cpi", "pce", "nfp", "rollover"]],
+        ["learn", ["learn", "learned", "learnt", "learning", "train", "trained", "training", "tune", "tuned", "tuning", "optimize",
+          "improve", "improved", "adapt", "auto training"]],
+        ["price", ["price", "gold", "xau", "xauusd", "quote", "rate", "spread", "worth", "how much"]],
+        ["trades", ["trades", "limit", "count", "how many", "today"]],
+        ["last", ["last", "previous", "recent", "history", "log", "last trade"]],
+        ["position", ["position", "open trade", "in a trade"]],
+        ["rules", ["rules", "rule", "settings", "parameters", "config", "strategy"]],
+        ["status", ["status", "doing", "going", "update", "report", "situation", "summary", "now", "how is it", "what is up"]],
+        ["greet", ["hi", "hello", "hey", "hii", "morning", "evening", "afternoon", "namaste", "yo", "good morning", "good evening", "good afternoon"]],
+        ["thanks", ["thanks", "thank", "appreciate"]],
+        ["wow", ["wow", "nice", "cool", "great", "awesome", "amazing", "good", "perfect", "excellent", "superb", "impressive"]],
+        ["bad", ["bad", "stupid", "useless", "wrong", "terrible", "dumb", "worst", "hate"]],
+        ["bye", ["bye", "goodbye", "goodnight", "see you", "later"]],
+        ["ok", ["ok", "okay", "fine", "sure", "alright", "understood", "got it", "cool cool", "hmm"]],
+        ["who", ["who are you", "your name", "what are you", "yourself", "are you a bot", "are you real"]],
+      ];
+
+      // A word that is itself a keyword is never read as a typo of another one ("gold" is not a typo of "hold").
+      const KNOWN = new Set(INTENTS.flatMap(([, keys]) => keys.filter((k) => !k.includes(" "))));
+
+      // Optimal string alignment distance, capped: "staus" → "status" and "pirce" → "price" are 1 apart.
+      function typoDistance(a, b) {
+        if (Math.abs(a.length - b.length) > 1) return 2;
+        const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+        for (let j = 1; j <= b.length; j++) d[0][j] = j;
+        for (let i = 1; i <= a.length; i++) {
+          for (let j = 1; j <= b.length; j++) {
+            d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+            if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+          }
+        }
+        return d[a.length][b.length];
+      }
+
+      function understand(text) {
+        const words = text.toLowerCase().replace(/[’']/g, "").replace(/n't\b/g, " not").replace(/[^a-z0-9&\s]/g, " ")
+          .split(/\s+/).filter(Boolean).flatMap((w) => (SLANG[w] ?? w).split(" "));
+        const clean = ` ${words.join(" ")} `;
+        let best = null, bestScore = 0;
+        for (const [intent, keys] of INTENTS) {
+          let score = 0;
+          for (const key of keys) {
+            if (key.includes(" ")) score += clean.includes(` ${key} `) ? 2 : 0;
+            else if (words.includes(key) || (key.length >= 4 && words.some((w) => w.length >= 4 && !KNOWN.has(w) && typoDistance(w, key) <= 1))) score += 1;
+          }
+          if (score > bestScore) { best = intent; bestScore = score; }
+        }
+        const question = text.includes("?") || /^(why|what|how|when|where|who|is|are|do|does|did|can|could|should|will|would)\b/.test(words[0] ?? "");
+        return { intent: best, question };
+      }
+
+      // Manual trading: you choose the entry; the bot sets stop loss and take profit from the rules and manages the exit.
+      function manualTrade(side) {
+        if (!R || !latest) return "I'm still loading market data — try again in a few seconds.";
+        const { sim, ind, i } = latest;
+        if (sim.position) return `There's already an open ${sim.position.side}. Close it first (Close trade), then open a new one.`;
+        if (BROKER?.linked && BROKER.account.mode === "REAL" && !realArmed) {
+          return `MT5 is logged in to your REAL account, and Real account is not chosen in the JustMarkets account panel, so I won't trade it.`;
+        }
+        const limitHit = dailyLimitReason(sim);
+        if (limitHit) return `No more trades today: ${limitHit}. The next trade can be tomorrow.`;
+        const price = liveCandle?.close ?? latest.last.close;
+        const opened = { time: Date.now() / 1000, side, price };
+        MANUAL_OPENS.push(opened);
+        recordEvent("open", opened);
+        refresh();
+        const sign = side === "BUY" ? 1 : -1, entry = price + sign * R.spread, atrNow = ind.atr[i];
+        const warning = entryBlock(Date.now() / 1000);
+        return `Manual ${side} opened at about ${entry.toFixed(2)}. I set the stop loss at ~${(entry - sign * R.stop_atr * atrNow).toFixed(2)} (${R.stop_atr}× ATR) and take profit at ~${(entry + sign * R.target_atr * atrNow).toFixed(2)} (${R.target_atr}× ATR), and I'll trail the stop once it's ${R.trail_start_atr}× ATR in profit.`
+          + (warning ? `\n⚠ Careful: my rules would not enter now (${warning}).` : "");
+      }
+
+      function manualClose() {
+        if (!latest) return "I'm still loading market data — try again in a few seconds.";
+        const pos = latest.sim.position;
+        if (!pos) return "There's no open trade to close right now.";
+        const p = liveCandle?.close ?? latest.last.close;
+        const closed = { time: Date.now() / 1000, price: p };
+        MANUAL_CLOSES.push(closed);
+        recordEvent("close", closed);
+        refresh();
+        return `Closed the ${pos.manual ? "manual " : ""}${pos.side} at ${p.toFixed(2)} for about ${usd((pos.side === "BUY" ? 1 : -1) * (p - pos.entry) * pos.oz)}. It shows as MANUAL in the trade log.`;
+      }
+
+      function chatReply(text) {
+        const now = Date.now() / 1000;
+        const openPause = PAUSES.find((p) => p.to === null);
+        if (!R) return "My rules are still loading — give me a moment.";
+        // "move stop to 4040", "tp 4065", "set target at 4060.5": move a level of the open trade (a price has 3–5 digits).
+        const level = /\b(stop loss|stop|sl|take profit|target|tp)\b[^0-9?]*(\d{3,5}(?:\.\d+)?)/i.exec(text);
+        if (level && !text.includes("?")) return setLevel(/^(stop|sl)/i.test(level[1]) ? "stop" : "target", Number(level[2]));
+        if (/^\s*set\s/i.test(text)) {
+          const [, name, raw] = text.trim().split(/\s+/);
+          if (!(name in R)) return `I don't have a rule called "${name}". Ask me to "show the rules" to see the names.`;
+          const old = R[name];
+          const value = typeof old === "boolean" ? raw === "true" : typeof old === "number" ? Number(raw) : raw;
+          if (raw === undefined || (typeof old === "number" && !Number.isFinite(value)) || (typeof old === "boolean" && !["true", "false"].includes(raw))) {
+            return `"${raw ?? ""}" isn't a valid value for ${name} (it's ${old} now).`;
+          }
+          R[name] = value;
+          const problem = rulesProblem();
+          if (problem) { R[name] = old; return `I didn't change it: ${problem}`; }
+          refresh();
+          return `Done — ${name} is now ${value} (was ${old}). This lasts until you reload the page; edit rules.json to keep it.`;
+        }
+
+        const { intent, question } = understand(text);
+        const status = whyNow?.status ?? "LOADING";
+        const reasons = whyNow ? `\n• ${whyNow.reasons.join("\n• ")}` : "";
+        const price = () => (liveCandle?.close ?? latest.last.close).toFixed(2);
+
+        // Small talk first: it needs no market data.
+        if (intent === "greet") return `Hi! 👋 I'm ${status === "HOLD" ? "holding and watching gold" : status === "SELL" || status === "BUY" ? `on a ${status} right now` : "getting ready"}. Ask me "why?" or "how's it going?".`;
+        if (intent === "thanks") return "You're welcome! I'll keep watching the market.";
+        if (intent === "bye") return "Bye! I keep running as long as this page stays open.";
+        if (intent === "ok") return "👍 I'm here whenever you need me — try \"why?\" or \"status\".";
+        if (intent === "who") return "I'm your XAUUSD paper-trading bot. I buy uptrend breakouts and sell downtrend breakdowns in gold by the 19 rules in rules.json, using live Binance prices, and I explain every decision. I never place real orders.";
+        if (intent === "help") return HELP;
+        if (intent === "bad") return `Sorry about that! I follow the rules exactly, so if I'm holding it's because:${reasons}\nYou can loosen a rule, e.g. "set breakout_candles 10".`;
+
+        // Commands only run when phrased as an instruction; a question about them gets an explanation instead.
+        if (intent === "pause") {
+          if (question) return "Say \"pause\" and I'll stop opening new trades. An open trade stays protected by its stop and trailing stop.";
+          if (openPause) return "I'm already paused. Say \"resume\" when you want me back.";
+          PAUSES.push({ from: now, to: null });
+          recordEvent("pause", { time: now });
+          refresh();
+          return "Paused ⏸ — no new trades. An open trade stays protected by its stop and trailing stop. Say \"resume\" to restart.";
+        }
+        if (intent === "resume") {
+          if (question) return "Say \"resume\" after a pause and I'll take new trades again when all the rules are met.";
+          if (!openPause) return "I'm not paused — I'm already trading by the rules.";
+          openPause.to = now;
+          recordEvent("resume", { time: now });
+          refresh();
+          return "Back on ▶ — I'll take new trades again when all the rules are met.";
+        }
+
+        if (!latest || !whyNow) return "I'm still loading market data — ask me again in a few seconds.";
+        const { sim, ind, i } = latest;
+        const pos = sim.position;
+        const posText = pos ? `I'm in a ${pos.side}: ${(pos.oz / R.oz_per_lot).toFixed(2)} lot from ${pos.entry.toFixed(2)}, unrealized ${usd((pos.side === "BUY" ? 1 : -1) * ((liveCandle?.close ?? latest.last.close) - pos.entry) * pos.oz)}.` : "I have no open trade.";
+
+        if (intent === "close") {
+          if (question) return "Say \"close\" (or press Close trade) and I'll close the open trade at the current price.";
+          return manualClose();
+        }
+        // "buy" / "sell" as an instruction opens a manual trade; a question about buying or selling gets an explanation.
+        const order = /^(please\s+)?(buy|sell|go long|go short|open (a )?(buy|sell)|enter (a )?(buy|sell))\b/.exec(text.trim().toLowerCase());
+        if (order && !question && text.trim().split(/\s+/).length <= 4) return manualTrade(/buy|long/.test(order[0]) ? "BUY" : "SELL");
+        if (intent === "why") return `${status}${openPause ? " (paused)" : ""} — here's why:${reasons}`;
+        if (intent === "sell") return status === "SELL" ? `Yes — ${whyNow.reasons.join(" ")}` : `Not right now. I SELL in a downtrend when a candle closes below the ${R.breakout_candles}-candle low (RSI above ${R.rsi_min_to_sell}). Right now I'm ${status}:${reasons}`;
+        if (intent === "buy") return status === "BUY" ? `Yes — ${whyNow.reasons.join(" ")}` : `Not right now. I BUY in an uptrend when a candle closes above the ${R.breakout_candles}-candle high (RSI below ${R.rsi_max_to_buy}). Right now I'm ${status}:${reasons}`;
+        if (intent === "stops") {
+          if (pos) return `${posText}\nStop ${pos.stop.toFixed(2)}, target ${pos.target.toFixed(2)}. The stop starts trailing once profit reaches ${R.trail_start_atr}× ATR.`;
+          return `A SELL gets a stop ${R.stop_atr}× ATR above entry and a target ${R.target_atr}× ATR below; a BUY gets the stop ${R.stop_atr}× ATR below and the target ${R.target_atr}× ATR above. Once profit reaches ${R.trail_start_atr}× ATR the stop follows ${R.trail_distance_atr}× ATR behind the best price. ATR is ${ind.atr[i].toFixed(2)} now, so the stop would be about $${(R.stop_atr * ind.atr[i]).toFixed(2)} away.`;
+        }
+        if (intent === "trend") {
+          const down = ind.fast[i] < ind.slow[i], quiet = ind.atr[i] < R.atr_min_to_spread * R.spread;
+          return `The trend is ${down ? "DOWN 📉" : "UP 📈"} (EMA ${R.ema_fast} ${ind.fast[i].toFixed(2)} vs EMA ${R.ema_slow} ${ind.slow[i].toFixed(2)}). RSI is ${ind.rsi[i].toFixed(1)}, ATR ${ind.atr[i].toFixed(2)} — ${quiet ? `too quiet to trade (needs ${(R.atr_min_to_spread * R.spread).toFixed(2)})` : "moving enough to trade"}.`;
+        }
+        if (intent === "price") return `Gold (XAU/USD) is ${price()} right now, ${$("change").textContent} today (24h high ${$("high").textContent}, low ${$("low").textContent}). Spread ${liveSpread === null ? "—" : liveSpread.toFixed(2)}.`;
+        if (intent === "money") {
+          const a = BROKER?.linked ? BROKER.account : null;
+          if (!a) return "I'm not linked to your JustMarkets account yet, so I have no balance to show. Link MT5 (see the JustMarkets account panel).";
+          return `Your JustMarkets ${a.mode.toLowerCase()} account #${a.login}: balance ${usd(a.balance)}, equity ${usd(a.equity)}. Today ${usd(a.today_pl)}. Win rate ${$("winrate").textContent}.`;
+        }
+        if (intent === "trades") return `Today I've made ${sim.dayTrades} trades, P&L ${usd(sim.balance - sim.dayStart)}.`;
+        if (intent === "last") {
+          const t = sim.trades[sim.trades.length - 1];
+          if (!t) return "No closed trades in the loaded history yet.";
+          const when = new Date((t.time - TZ_SHIFT) * 1000).toLocaleTimeString();
+          return `My last trade: ${t.side} at ${t.entry.toFixed(2)} (${when}), closed at ${t.exit.toFixed(2)} by ${t.reason} for ${usd(t.pnl)}.`;
+        }
+        if (intent === "position") return `${posText}${pos ? ` Stop ${pos.stop.toFixed(2)}, target ${pos.target.toFixed(2)}.` : ""}`;
+        if (intent === "news") {
+          const next = NEWS?.filter((n) => n.time > now).slice(0, 3) ?? [];
+          const block = entryBlock(now);
+          const list = next.map((n) => `• ${n.title} (${n.currency}) — ${new Date(n.time * 1000).toLocaleString()}`).join("\n");
+          return `${block ? `⚠ No new entries right now: ${block}.\n` : ""}${next.length ? `Next high-impact news:\n${list}\nI stop opening trades ${R.news_minutes_before} min before each.` : "No more high-impact news this week."}`;
+        }
+        if (intent === "learn") {
+          if (!R.auto_tune_enabled) return "Auto-training is off (rule 19 in rules.json).";
+          const now = Object.keys(TUNE_GRID).map((k) => `${k} ${R[k]}${R[k] !== BASE[k] ? ` (rules.json: ${BASE[k]})` : ""}`).join(", ");
+          return `I re-train after every closed trade and at least every ${R.auto_tune_every_minutes} min. Last result: ${tuned.text}\nStrategy settings now: ${now}.\nI never change the safety rules: risk, daily loss, spread, rollover, news and cooldown.`;
+        }
+        if (intent === "rules") return `My rules (from rules.json):\n${Object.entries(R).map(([k, v]) => `• ${k}: ${Array.isArray(v) ? v.join(", ") : v}`).join("\n")}`;
+        if (intent === "status") return `${status}${openPause ? " (paused)" : ""}. ${posText} Gold ${price()}, balance ${usd(sim.balance)}, ${sim.dayTrades} trades today. Ask "why?" for the details.`;
+        if (intent === "wow") return `Right? 😄 Gold is at ${price()} and I'm ${status === "HOLD" ? "holding — ask \"why?\" to see what I'm waiting for" : status === "SELL" || status === "BUY" ? `on a ${status}` : status}.`;
+
+        return `Hmm, I'm not sure what you mean by "${text}". ${HELP}`;
+      }
+
+      // Floating chat: drag it by the title bar anywhere on screen (kept inside the window); – collapses it to the title bar.
+      const chatBox = $("chat");
+      $("chatHead").addEventListener("pointerdown", (e) => {
+        if (e.target.closest("button")) return;
+        const box = chatBox.getBoundingClientRect(), dx = e.clientX - box.left, dy = e.clientY - box.top;
+        const move = (ev) => {
+          chatBox.style.left = `${Math.min(Math.max(0, ev.clientX - dx), innerWidth - box.width)}px`;
+          chatBox.style.top = `${Math.min(Math.max(0, ev.clientY - dy), innerHeight - chatBox.offsetHeight)}px`;
+          chatBox.style.right = chatBox.style.bottom = "auto";
+        };
+        const up = () => { removeEventListener("pointermove", move); removeEventListener("pointerup", up); };
+        addEventListener("pointermove", move);
+        addEventListener("pointerup", up);
+      });
+      const setMinimized = (min) => {
+        chatBox.classList.toggle("min", min);
+        $("chatMin").textContent = min ? "+" : "–";
+        $("chatMin").setAttribute("aria-label", min ? "Open chat" : "Minimize chat");
+      };
+      $("chatMin").addEventListener("click", () => setMinimized(!chatBox.classList.contains("min")));
+      // ✕ minimizes the chat and parks it in the bottom-right corner.
+      $("chatClose").addEventListener("click", () => {
+        setMinimized(true);
+        Object.assign(chatBox.style, { right: "16px", bottom: "16px", top: "auto", left: "auto" });
+      });
+
+      const say = (who, text) => {
+        const div = document.createElement("div");
+        div.className = `msg ${who}`;
+        div.textContent = text;
+        $("chatLog").append(div);
+        $("chatLog").scrollTop = $("chatLog").scrollHeight;
+      };
+      // Move the open trade's stop loss or take profit (dragged line or chat). The bot keeps managing the trade.
+      function setLevel(kind, price) {
+        const pos = latest?.sim.position;
+        if (!pos) return "There's no open trade, so there's no stop or target to move.";
+        const now = liveCandle?.close ?? latest.last.close, sign = pos.side === "BUY" ? 1 : -1;
+        const name = kind === "stop" ? "stop loss" : "take profit";
+        // A BUY's stop must stay below the price and its target above it (the other way round for a SELL).
+        if (kind === "stop" ? sign * (now - price) <= 0 : sign * (price - now) <= 0) {
+          refresh(); // snap a dragged line back to the real level
+          return `A ${name} at ${price.toFixed(2)} would be on the wrong side of the current price ${now.toFixed(2)} for a ${pos.side}, so I kept it at ${pos[kind].toFixed(2)}.`;
+        }
+        const old = pos[kind];
+        const change = { time: Date.now() / 1000, kind, price };
+        LEVEL_CHANGES.push(change);
+        recordEvent("level", { time: change.time, level: kind, price });
+        refresh();
+        return `Moved the ${name} of the ${pos.side} from ${old.toFixed(2)} to ${price.toFixed(2)}. If it's hit: about ${usd(sign * (price - pos.entry) * pos.oz)}.`
+          + (kind === "stop" ? " The trailing stop can still tighten it later." : "");
+      }
+
+      // Drag the Stop ↕ / Target ↕ line of the open trade up or down with the mouse.
+      const chartEl = $("chart");
+      const lineNear = (e) => {
+        const pos = latest?.sim.position;
+        if (!pos) return null;
+        const y = e.clientY - chartEl.getBoundingClientRect().top;
+        return ["stop", "target"].find((kind) => Math.abs(candleSeries.priceToCoordinate(pos[kind]) - y) <= 6) ?? null;
+      };
+      chartEl.addEventListener("pointerdown", (e) => {
+        const kind = lineNear(e);
+        if (!kind) return;
+        dragging = { kind, line: priceLines[kind === "stop" ? 1 : 2], price: latest.sim.position[kind] };
+        chart.applyOptions({ handleScroll: false, handleScale: false }); // hold the chart still while dragging
+        chartEl.setPointerCapture(e.pointerId);
+        e.preventDefault();
+      }, true);
+      chartEl.addEventListener("pointermove", (e) => {
+        if (!dragging) { chartEl.classList.toggle("on-line", !!lineNear(e)); return; }
+        const price = candleSeries.coordinateToPrice(e.clientY - chartEl.getBoundingClientRect().top);
+        if (price === null) return;
+        dragging.price = price;
+        dragging.line.applyOptions({ price });
+      });
+      chartEl.addEventListener("pointerup", () => {
+        if (!dragging) return;
+        const { kind, price } = dragging;
+        dragging = null;
+        chart.applyOptions({ handleScroll: true, handleScale: true });
+        pressed(`${kind === "stop" ? "Stop" : "Target"} line → ${price.toFixed(2)} (dragged)`, setLevel(kind, price));
+      });
+
+      // Buttons and dragged lines report back right under the buttons (fading after a few seconds), not in the chat.
+      let manualMsgTimer = null;
+      const pressed = (label, reply) => {
+        $("manualMsg").textContent = reply;
+        $("manualMsg").title = `${label}: ${reply}`;
+        $("manualMsg").classList.remove("hide");
+        clearTimeout(manualMsgTimer);
+        manualMsgTimer = setTimeout(() => $("manualMsg").classList.add("hide"), 8000);
+      };
+      $("mBuy").addEventListener("click", () => pressed("BUY (button)", manualTrade("BUY")));
+      $("mSell").addEventListener("click", () => pressed("SELL (button)", manualTrade("SELL")));
+      $("mClose").addEventListener("click", () => pressed("Close trade (button)", manualClose()));
+
+      $("chatForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const text = $("chatInput").value.trim();
+        if (!text) return;
+        say("me", text);
+        say("bot", chatReply(text));
+        $("chatInput").value = "";
+      });
+
+      loadRules()
+        .then(async (doc) => {
+          $("rules").replaceChildren(...Object.values(doc.rules).map((r) => {
+            const li = document.createElement("li");
+            const v = r.value;
+            li.textContent = `${r.rule} (${Array.isArray(v) ? v.join(", ") : typeof v === "object" ? Object.entries(v).map(([k, x]) => `${k} ${x}`).join(", ") : v})`;
+            return li;
+          }));
+          await loadNews().catch(() => {}); // NEWS stays null, and rulesProblem() stops the bot with the reason
+        })
+        .catch(() => $("rules").replaceChildren("rules.json could not be read."))
+        .finally(() => {
+          connectLive();
+          $("tf").addEventListener("change", () => { tfChanged = true; refresh(); });
+          $("more").addEventListener("click", () => { showAll = !showAll; refresh(); });
+          refresh();
+          setInterval(refresh, 5000);
+          pollBroker();
+          setInterval(pollBroker, 500);
+        });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,3 @@
+symbol: BTCUSD  # exact name from MT5 Market Watch; it may be BTCUSD. or similar
+connect_attempts: 5
+connect_backoff_seconds: 2

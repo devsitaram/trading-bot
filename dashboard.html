@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101722">
+    <title>Trading Agent · Local Dashboard</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #101722;
+        --panel: #182331;
+        --panel-soft: #1e2b3a;
+        --line: #2b3a4c;
+        --text: #eef4f8;
+        --muted: #9eafbe;
+        --green: #5de0ae;
+        --amber: #ffcb70;
+        --red: #ff828b;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        background:
+          radial-gradient(ellipse at 85% -10%, #234338 0, transparent 36rem),
+          var(--bg);
+      }
+      a { color: inherit; }
+      .shell { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 27px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; }
+      .logo {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        border-radius: 12px;
+        color: #09251b;
+        background: var(--green);
+        font-size: 20px;
+      }
+      .subtle { color: var(--muted); font-size: 13px; }
+      .local-tag, .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 8px 12px;
+        color: var(--muted);
+        background: #111c28;
+        font-size: 12px;
+      }
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); }
+      main { padding: 38px 0 60px; }
+      .eyebrow {
+        color: var(--green);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: .14em;
+        text-transform: uppercase;
+      }
+      h1 { margin: 9px 0; font-size: clamp(30px, 5vw, 44px); letter-spacing: -.04em; }
+      .intro { max-width: 690px; margin: 0; color: var(--muted); line-height: 1.65; }
+      .warning {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        margin: 28px 0;
+        padding: 18px 20px;
+        border: 1px solid #785c2d;
+        border-radius: 14px;
+        background: #342a1a;
+      }
+      .warning-icon { color: var(--amber); font-size: 20px; line-height: 1.3; }
+      .warning strong { display: block; margin-bottom: 5px; }
+      .warning p { margin: 0; color: #e2ceb0; font-size: 14px; line-height: 1.55; }
+      .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+      .card, .section {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: linear-gradient(145deg, #1a2735, #151f2c);
+      }
+      .card { min-height: 110px; padding: 18px; }
+      .card-label { color: var(--muted); font-size: 12px; }
+      .card-value { margin-top: 12px; font-size: 18px; font-weight: 650; }
+      .card-detail { margin-top: 4px; color: var(--muted); font-size: 12px; }
+      .good { color: var(--green); }
+      .warn { color: var(--amber); }
+      .section { margin-top: 16px; overflow: hidden; }
+      .section-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 18px 20px;
+        border-bottom: 1px solid var(--line);
+      }
+      .chart-head { flex-wrap: wrap; gap: 12px; }
+      .chart-controls { display: flex; align-items: center; gap: 12px; }
+      .chart-value { color: var(--green); font-size: 13px; font-variant-numeric: tabular-nums; }
+      .chart-select {
+        max-width: 180px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px 10px;
+        color: var(--text);
+        background: #111c28;
+      }
+      .chart-wrap { position: relative; padding: 16px 20px 12px; }
+      .chart-svg { display: block; width: 100%; height: auto; min-height: 180px; }
+      .chart-grid { stroke: var(--line); stroke-width: 1; }
+      .chart-axis { fill: var(--muted); font-size: 12px; }
+      .chart-line { fill: none; stroke: var(--green); stroke-linecap: round; stroke-linejoin: round; stroke-width: 3; }
+      .chart-point { fill: var(--green); stroke: var(--panel); stroke-width: 3; }
+      .chart-empty {
+        position: absolute;
+        inset: 16px 20px 12px;
+        display: grid;
+        align-content: center;
+        justify-items: center;
+        gap: 8px;
+        padding: 20px;
+        border-radius: 10px;
+        background: rgb(21 31 44 / 88%);
+        text-align: center;
+      }
+      .chart-empty[hidden] { display: none; }
+      .chart-empty strong { font-size: 14px; }
+      .chart-empty p { max-width: 500px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+      h2 { margin: 0; font-size: 16px; }
+      .empty {
+        display: grid;
+        min-height: 150px;
+        place-content: center;
+        justify-items: center;
+        gap: 8px;
+        padding: 20px;
+        text-align: center;
+      }
+      .empty strong { font-size: 14px; }
+      .empty p { max-width: 520px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+      .table-wrap { overflow-x: auto; }
+      table { width: 100%; border-collapse: collapse; text-align: left; }
+      th, td { padding: 13px 18px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+      th { color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; }
+      td { font-size: 13px; }
+      .footer { display: flex; justify-content: space-between; gap: 15px; margin-top: 20px; color: var(--muted); font-size: 12px; }
+      .footer a { color: var(--green); text-decoration: none; }
+      .footer a:hover { text-decoration: underline; }
+      @media (max-width: 760px) {
+        .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        header { align-items: flex-start; gap: 10px; }
+        .local-tag { font-size: 11px; }
+        .chart-controls { width: 100%; justify-content: space-between; }
+        .footer { flex-direction: column; }
+      }
+      @media (max-width: 430px) {
+        .shell { width: min(100% - 24px, 1180px); }
+        .cards { grid-template-columns: 1fr 1fr; gap: 9px; }
+        .card { padding: 13px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header>
+        <div class="brand">
+          <div class="logo" aria-hidden="true">↗</div>
+          <div>
+            <div>Trading Agent</div>
+            <div class="subtle">Multi-asset scanner workspace</div>
+          </div>
+        </div>
+        <nav style="display:flex;gap:16px;margin-left:auto;margin-right:16px">
+          <a href="/chart">Gold chart</a>
+          <a href="/trade">Trade terminal</a>
+          <a href="https://www.jb8.online/en-np" target="_blank" rel="noopener noreferrer">Online games</a>
+          <a href="/practice">Practice games</a>
+        </nav>
+        <div class="local-tag"><span class="dot"></span> Local app · private to this Mac</div>
+      </header>
+
+      <main>
+        <div class="eyebrow">Research dashboard</div>
+        <h1>Market overview</h1>
+        <p class="intro">
+          This is the project’s local dashboard. It runs separately from the
+          JustMarkets website and only shows real account or market data after a
+          supported broker adapter is configured.
+        </p>
+
+        <section class="warning" role="status" aria-live="polite">
+          <div class="warning-icon" aria-hidden="true">!</div>
+          <div>
+            <strong id="connection-title">Broker not connected · trading disabled</strong>
+            <p id="connection-message">Checking local application status…</p>
+          </div>
+        </section>
+
+        <section class="cards" aria-label="Account and application status">
+          <article class="card">
+            <div class="card-label">Broker connection</div>
+            <div class="card-value warn" id="broker-status">Not connected</div>
+            <div class="card-detail">No authenticated adapter</div>
+          </article>
+          <article class="card">
+            <div class="card-label">Account mode</div>
+            <div class="card-value warn" id="account-mode">Unknown</div>
+            <div class="card-detail">Account not verified</div>
+          </article>
+          <article class="card">
+            <div class="card-label">Market data</div>
+            <div class="card-value" id="market-data">Unavailable</div>
+            <div class="card-detail" id="market-data-detail">No live quotes received</div>
+          </article>
+          <article class="card">
+            <div class="card-label">Order execution</div>
+            <div class="card-value good" id="execution-status">Disabled</div>
+            <div class="card-detail">No orders can be submitted</div>
+          </article>
+        </section>
+
+        <section class="section" aria-labelledby="chart-title">
+          <div class="section-head chart-head">
+            <div>
+              <h2 id="chart-title">Live price chart</h2>
+              <div class="subtle">Bid/ask midpoint snapshots · refreshed every 5 seconds</div>
+            </div>
+            <div class="chart-controls">
+              <span class="pill" id="chart-status" role="status" aria-live="polite">Waiting for live quotes</span>
+              <label class="subtle" for="chart-symbol">Symbol</label>
+              <select class="chart-select" id="chart-symbol" aria-label="Chart symbol" disabled>
+                <option>No live symbols</option>
+              </select>
+              <strong class="chart-value" id="chart-latest">—</strong>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <svg class="chart-svg" id="price-chart" viewBox="0 0 800 260" role="img" aria-label="Live bid and ask midpoint chart">
+              <line class="chart-grid" x1="60" y1="28" x2="790" y2="28"></line>
+              <line class="chart-grid" x1="60" y1="118" x2="790" y2="118"></line>
+              <line class="chart-grid" x1="60" y1="208" x2="790" y2="208"></line>
+              <text class="chart-axis" id="chart-y-high" x="52" y="32" text-anchor="end">—</text>
+              <text class="chart-axis" id="chart-y-mid" x="52" y="122" text-anchor="end">—</text>
+              <text class="chart-axis" id="chart-y-low" x="52" y="212" text-anchor="end">—</text>
+              <text class="chart-axis" id="chart-x-old" x="60" y="244">—</text>
+              <text class="chart-axis" id="chart-x-new" x="790" y="244" text-anchor="end">—</text>
+              <path class="chart-line" id="chart-path"></path>
+              <circle class="chart-point" id="chart-point" r="5" cx="60" cy="118" hidden></circle>
+            </svg>
+            <div class="chart-empty" id="chart-empty">
+              <strong>No live quote feed</strong>
+              <p>The chart will draw from real broker quotes after a supported authenticated market-data adapter is connected. No sample or placeholder prices are shown.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Instrument scanner</h2>
+            <span class="pill"><span class="dot"></span><span id="scan-status">Waiting for broker adapter</span></span>
+          </div>
+          <div class="empty" id="instrument-empty">
+            <strong>No live instruments to display</strong>
+            <p>The dashboard does not fabricate prices. Instruments will appear here only after the app receives data through a supported authenticated integration.</p>
+          </div>
+          <div class="table-wrap" id="instrument-table" hidden>
+            <table>
+              <thead>
+                <tr><th>Symbol</th><th>Category</th><th>Bid</th><th>Ask</th><th>Spread</th><th>Session</th><th>Signal</th></tr>
+              </thead>
+              <tbody id="instrument-rows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <h2>Positions &amp; opportunities</h2>
+            <span class="pill" id="position-count">No account data</span>
+          </div>
+          <div class="empty">
+            <strong>No account positions or ranked opportunities</strong>
+            <p>Estimated opportunities and realized P&amp;L will be shown separately when verified data is available.</p>
+          </div>
+        </section>
+
+        <div class="footer">
+          <span>Local-only dashboard · no credentials collected · no orders submitted</span>
+          <a href="/chart">Gold chart &amp; paper bot</a>
+          <a href="/trade">Trade terminal</a>
+          <a href="https://justmarkets.com/web-trading" target="_blank" rel="noopener noreferrer">Open JustMarkets terminal separately ↗</a>
+        </div>
+      </main>
+    </div>
+    <script>
+      const chartHistory = new Map();
+      const chartSymbol = document.getElementById("chart-symbol");
+      const chartStatus = document.getElementById("chart-status");
+      const chartLatest = document.getElementById("chart-latest");
+      const chartEmpty = document.getElementById("chart-empty");
+      const chartPath = document.getElementById("chart-path");
+      const chartPoint = document.getElementById("chart-point");
+      const chartSamplesPerSymbol = 60;
+
+      function formatPrice(value) {
+        return new Intl.NumberFormat(undefined, {
+          maximumFractionDigits: 6,
+          minimumFractionDigits: 2,
+        }).format(value);
+      }
+
+      function formatOptional(value) {
+        return Number.isFinite(value) ? formatPrice(value) : "—";
+      }
+
+      function renderChart() {
+        const symbol = chartSymbol.value;
+        const samples = chartHistory.get(symbol) || [];
+        const hasSamples = samples.length > 0;
+        chartEmpty.hidden = hasSamples;
+        chartPath.setAttribute("d", "");
+        chartPoint.hidden = true;
+        chartLatest.textContent = hasSamples ? formatPrice(samples.at(-1).mid) : "—";
+
+        if (!hasSamples) return;
+
+        const values = samples.map((sample) => sample.mid);
+        let minimum = Math.min(...values);
+        let maximum = Math.max(...values);
+        const padding = maximum === minimum ? Math.max(Math.abs(maximum) * 0.001, 0.000001) : (maximum - minimum) * 0.12;
+        minimum -= padding;
+        maximum += padding;
+        const x = (index) => samples.length === 1 ? 425 : 60 + (index / (samples.length - 1)) * 730;
+        const y = (value) => 208 - ((value - minimum) / (maximum - minimum)) * 180;
+        const path = samples.map((sample, index) =>
+          `${index === 0 ? "M" : "L"} ${x(index).toFixed(2)} ${y(sample.mid).toFixed(2)}`
+        ).join(" ");
+
+        chartPath.setAttribute("d", path);
+        chartPoint.setAttribute("cx", x(samples.length - 1).toFixed(2));
+        chartPoint.setAttribute("cy", y(samples.at(-1).mid).toFixed(2));
+        chartPoint.hidden = false;
+        document.getElementById("chart-y-high").textContent = formatPrice(maximum);
+        document.getElementById("chart-y-mid").textContent = formatPrice((minimum + maximum) / 2);
+        document.getElementById("chart-y-low").textContent = formatPrice(minimum);
+        document.getElementById("chart-x-old").textContent = new Date(samples[0].time).toLocaleTimeString();
+        document.getElementById("chart-x-new").textContent = new Date(samples.at(-1).time).toLocaleTimeString();
+      }
+
+      function updateChart(instruments) {
+        const validInstruments = instruments.filter((item) =>
+          typeof item.symbol === "string"
+          && item.symbol.length > 0
+          && Number.isFinite(item.bid)
+          && Number.isFinite(item.ask)
+          && item.bid > 0
+          && item.ask >= item.bid
+        );
+        const availableSymbols = new Set(validInstruments.map((item) => item.symbol));
+        const previousSelection = chartSymbol.value;
+        chartSymbol.replaceChildren(...validInstruments.map((item) => {
+          const option = document.createElement("option");
+          option.value = item.symbol;
+          option.textContent = item.symbol;
+          return option;
+        }));
+        chartSymbol.disabled = validInstruments.length === 0;
+
+        if (availableSymbols.has(previousSelection)) {
+          chartSymbol.value = previousSelection;
+        } else if (validInstruments.length > 0) {
+          chartSymbol.value = validInstruments[0].symbol;
+        }
+
+        const sampledAt = Date.now();
+        for (const item of validInstruments) {
+          const history = chartHistory.get(item.symbol) || [];
+          if (history.length > 0 && sampledAt - history.at(-1).time > 15000) {
+            history.length = 0;
+          }
+          history.push({ mid: item.bid + (item.ask - item.bid) / 2, time: sampledAt });
+          if (history.length > chartSamplesPerSymbol) history.shift();
+          chartHistory.set(item.symbol, history);
+        }
+
+        chartStatus.textContent = validInstruments.length > 0
+          ? `Live · ${new Date(sampledAt).toLocaleTimeString()}`
+          : "Waiting for live quotes";
+        renderChart();
+      }
+
+      chartSymbol.addEventListener("change", renderChart);
+
+      async function refreshStatus() {
+        try {
+          const response = await fetch("/api/status", { cache: "no-store" });
+          if (!response.ok) throw new Error(`Status endpoint returned ${response.status}`);
+          const status = await response.json();
+          document.getElementById("connection-title").textContent =
+            status.broker_connected ? "MT5 quote feed active · orders disabled" : "MT5 quote feed not connected";
+          document.getElementById("connection-message").textContent = status.message;
+          document.getElementById("broker-status").textContent =
+            status.broker_connected ? "MT5 feed active" : "Not connected";
+          document.getElementById("account-mode").textContent = status.account_mode;
+          document.getElementById("market-data").textContent =
+            status.market_data === "unavailable" ? "Unavailable" : "Live";
+          document.getElementById("market-data-detail").textContent =
+            status.broker_connected ? "Read-only MT5 quotes" : "No live quotes received";
+          document.getElementById("execution-status").textContent =
+            status.execution_enabled ? "Enabled" : "Disabled";
+          document.getElementById("scan-status").textContent =
+            status.broker_connected ? "Live quotes received" : "Waiting for MT5 quote bridge";
+          document.getElementById("position-count").textContent =
+            status.account_verified ? `${status.positions.length} positions` : "No account data";
+          const instruments = Array.isArray(status.instruments) ? status.instruments : [];
+          updateChart(instruments);
+          if (instruments.length > 0) {
+            document.getElementById("instrument-empty").hidden = true;
+            document.getElementById("instrument-table").hidden = false;
+            document.getElementById("instrument-rows").replaceChildren(
+              ...instruments.map((item) => {
+                const row = document.createElement("tr");
+                for (const value of [
+                  item.symbol, item.category, formatOptional(item.bid), formatOptional(item.ask),
+                  formatOptional(item.spread), item.session_status ?? "unknown",
+                  item.signal_direction ?? "HOLD",
+                ]) {
+                  const cell = document.createElement("td");
+                  cell.textContent = String(value);
+                  row.append(cell);
+                }
+                return row;
+              })
+            );
+          } else {
+            document.getElementById("instrument-empty").hidden = false;
+            document.getElementById("instrument-table").hidden = true;
+            document.getElementById("instrument-rows").replaceChildren();
+          }
+        } catch (error) {
+          document.getElementById("connection-title").textContent = "Local status unavailable";
+          document.getElementById("connection-message").textContent = error.message;
+          chartStatus.textContent = "Feed unavailable";
+        }
+      }
+      refreshStatus();
+      window.setInterval(refreshStatus, 5000);
+    </script>
+  </body>
+</html>

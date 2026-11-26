@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Trading Agent · Trade Terminal</title>
+    <style>
+      :root { color-scheme: dark; --bg: #101722; --panel: #182331; --line: #2b3a4c; --text: #eef4f8; --muted: #9eafbe; --blue: #4c8dff; }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body { margin: 0; display: flex; flex-direction: column; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, sans-serif; }
+      .bar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 8px 16px; background: var(--panel); }
+      .top { border-bottom: 1px solid var(--line); }
+      .bottom { min-height: 48px; background: #3a4048; }
+      h1 { font-size: 16px; margin: 0; }
+      a { color: var(--blue); }
+      .right { margin-left: auto; }
+      button { padding: 8px 16px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
+      main { flex: 1; min-height: 0; }
+      main iframe { width: 100%; height: 100%; border: 0; display: block; }
+    </style>
+  </head>
+  <body>
+    <div class="bar top">
+      <button type="button" id="back">← Back</button>
+      <h1>Trade terminal</h1>
+      <a href="/">Dashboard</a>
+      <a href="/practice">Practice games</a>
+      <a class="right" href="https://justmarkets.com/web-trading?account-id=15748669" rel="noreferrer">Open JustMarkets terminal</a>
+    </div>
+    <main>
+      <iframe src="https://justmarkets.com/web-trading?account-id=15748669" title="JustMarkets web terminal"></iframe>
+    </main>
+    <div class="bar bottom"></div>
+    <script>
+      document.getElementById("back").addEventListener("click", () => (history.length > 1 ? history.back() : location.assign("/")));
+    </script>
+  </body>
+</html>
